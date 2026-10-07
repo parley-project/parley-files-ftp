@@ -1,17 +1,17 @@
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Properties;
 
-import us.bringardner.core.BjlLogger;
-import us.bringardner.core.ILogger.Level;
-import us.bringardner.io.filesource.FileSource;
-import us.bringardner.io.filesource.FileSourceFactory;
-import us.bringardner.io.filesource.test.FileSourceTestSupport;
-import us.bringardner.io.filesource.test.TestServerController;
-import us.bringardner.net.ftp.server.FtpServer;
+import us.bringardner.parley.core.BjlLogger;
+import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.files.FileSource;
+import us.bringardner.parley.files.FileSourceFactory;
+import us.bringardner.parley.files.test.FileSourceTestSupport;
+import us.bringardner.parley.files.test.TestServerController;
+import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
  * The FTP server the shared FileSource tests use: started on port FtpPort

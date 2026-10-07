@@ -2,151 +2,87 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<version>1.0.0-SNAPSHOT</version>
-	<groupId>bringardner</groupId>
 
-	<artifactId>bjl_file_system_ftp</artifactId>
-	<name>Bringardner Java Library FileSystem FTP</name>
-	<description>An implementation of the FileSource interface for FTP</description>
+	<!-- License, developer, SCM, URL, Java level and the Maven Central release profile
+	     all come from parley-parent. -->
+	<parent>
+		<groupId>us.bringardner.parley</groupId>
+		<artifactId>parley-parent</artifactId>
+		<version>1.0.0-SNAPSHOT</version>
+		<relativePath>../parley-parent/pom.xml</relativePath>
+	</parent>
+
+	<artifactId>parley-files-ftp</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+	<name>Parley Files FTP</name>
+	<description>A parley-files FileSource implementation for FTP and FTPS servers, using the parley-ftp
+		client. Found at runtime through ServiceLoader. Formerly bringardner:bjl_file_system_ftp.</description>
+
+	<properties>
+		<!-- Written to the jar manifest as Automatic-Module-Name -->
+		<parley.moduleName>us.bringardner.parley.files.ftp</parley.moduleName>
+		<junit.version>5.11.4</junit.version>
+	</properties>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.junit</groupId>
+				<artifactId>junit-bom</artifactId>
+				<version>${junit.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 
 	<build>
-
 		<!-- Eclipse uses resources/ as a source folder; Maven has to be told, or the
-
 		     FileSourceFactory service registration (and any other files there) is left out of the jar -->
-
 		<resources>
-
 			<resource>
-
 				<directory>resources</directory>
-
 			</resource>
-
 			<resource>
-
 				<directory>src/main/resources</directory>
-
 			</resource>
-
 		</resources>
-		<!-- <sourceDirectory>src</sourceDirectory> -->
-		<pluginManagement>
-			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.3</version>
-					<configuration>
-						<source>11</source>
-						<target>11</target>
-					</configuration>
-				</plugin>
-
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-source-plugin</artifactId>
-					<version>3.1.0</version>
-					<executions>
-						<execution>
-							<id>attach-sources</id>
-							<goals>
-								<goal>jar</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-				<plugin>
-					<artifactId>maven-deploy-plugin</artifactId>
-					<version>2.8.2</version>
-				</plugin>
-				<plugin>
-					<groupId>com.github.github</groupId>
-					<artifactId>site-maven-plugin</artifactId>
-					<version>0.12</version>
-					<configuration>
-						<message>Maven artifacts for ${project.version}</message>
-						<noJekyll>true</noJekyll>
-						<outputDirectory>${project.build.directory}</outputDirectory>
-						<branch>refs/heads/${branch-name}</branch>
-						<includes>
-							<include>**/*</include>
-						</includes>
-						<merge>true</merge>
-						<repositoryName>BjlFileSystemFtp</repositoryName>
-						<repositoryOwner>tony-bringardner</repositoryOwner>
-						<server>github</server>
-					</configuration>
-					<executions>
-						<execution>
-							<goals>
-								<goal>site</goal>
-							</goals>
-							<phase>deploy</phase>
-						</execution>
-					</executions>
-				</plugin>
-
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-surefire-plugin</artifactId>
-					<version>3.5.2</version>
-					<configuration>
-						<test><!-- your test suite class name should be here -->
-						</test>
-					</configuration>
-				</plugin>
-			</plugins>
-		</pluginManagement>
 	</build>
 
+	<!-- GitHub Packages, used by release.sh. Maven Central releases use: mvn -Prelease clean deploy -->
 	<distributionManagement>
 		<repository>
 			<id>github</id>
 			<name>tony-bringardner</name>
-			<url>https://maven.pkg.github.com/tony-bringardner/BjlFileSystemFtp</url>
+			<url>https://maven.pkg.github.com/tony-bringardner/parley-files-ftp</url>
 		</repository>
-
 	</distributionManagement>
 
 	<dependencies>
-		
+		<!-- The FTP client (was bjl_net_ftp) -->
 		<dependency>
-			<groupId>us.bringardner</groupId>
-			<artifactId>bjl_net_ftp</artifactId>
+			<groupId>us.bringardner.parley</groupId>
+			<artifactId>parley-ftp</artifactId>
 			<version>1.0.0-SNAPSHOT</version>
 		</dependency>
+		<!-- The FileSource API this implements (was bjl_file_system) -->
 		<dependency>
-			<groupId>us.bringardner</groupId>
-			<artifactId>bjl_file_system</artifactId>
-			<version>1.0.2-SNAPSHOT</version>
+			<groupId>us.bringardner.parley</groupId>
+			<artifactId>parley-files</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
 		</dependency>
 		<!-- The shared FileSource test suite -->
 		<dependency>
-			<groupId>us.bringardner</groupId>
-			<artifactId>bjl_file_system</artifactId>
-			<version>1.0.2-SNAPSHOT</version>
+			<groupId>us.bringardner.parley</groupId>
+			<artifactId>parley-files</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
 			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>
-<!--
-		https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
 		<dependency>
 			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter-api</artifactId>
-			<version>5.11.4</version>
+			<artifactId>junit-jupiter</artifactId>
 			<scope>test</scope>
 		</dependency>
-
-	<!--
-		https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
-		<dependency>
-			<groupId>org.junit.jupiter</groupId>
-			<artifactId>junit-jupiter-engine</artifactId>
-			<version>5.11.4</version>
-			<scope>test</scope>
-		</dependency>
-		
 	</dependencies>
-
 </project>

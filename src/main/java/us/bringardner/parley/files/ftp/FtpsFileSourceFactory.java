@@ -1,4 +1,4 @@
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 public class FtpsFileSourceFactory extends FtpFileSourceFactory {
 

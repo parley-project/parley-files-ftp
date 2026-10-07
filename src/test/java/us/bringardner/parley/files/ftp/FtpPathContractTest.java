@@ -1,4 +1,4 @@
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,11 +18,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.core.ILogger.Level;
-import us.bringardner.io.filesource.FileSource;
-import us.bringardner.io.filesource.FileSourceFactory;
-import us.bringardner.io.filesource.fileproxy.FileProxyFactory;
-import us.bringardner.net.ftp.server.FtpServer;
+import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.files.FileSource;
+import us.bringardner.parley.files.FileSourceFactory;
+import us.bringardner.parley.files.fileproxy.FileProxyFactory;
+import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
  * BJL-14: getCanonicalPath() meets the contract the shared isChildOfMine relies on

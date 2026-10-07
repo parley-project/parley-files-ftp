@@ -28,14 +28,14 @@
  * Created on Dec 17, 2004
  *
  */
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
 
-import us.bringardner.io.filesource.FileSourceURLConnction;
+import us.bringardner.parley.files.FileSourceURLConnction;
 
 /**
  * This class does nothing but create the URLConniction where required.

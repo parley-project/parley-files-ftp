@@ -27,7 +27,7 @@
  * Created on Nov 24, 2006
  *
  */
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -42,15 +42,15 @@ import java.util.List;
 
 import javax.swing.ProgressMonitor;
 
-import us.bringardner.io.filesource.FileSource;
-import us.bringardner.io.filesource.FileSourceFactory;
-import us.bringardner.io.filesource.FileSourceFilter;
-import us.bringardner.io.filesource.ISeekableInputStream;
-import us.bringardner.io.filesource.fileproxy.FileProxy;
-import us.bringardner.io.filesource.ftp.FtpFile.Permissions;
-import us.bringardner.core.BaseObject;
-import us.bringardner.net.ftp.client.FtpClient;
-import us.bringardner.net.ftp.client.ClientFtpResponse;
+import us.bringardner.parley.files.FileSource;
+import us.bringardner.parley.files.FileSourceFactory;
+import us.bringardner.parley.files.FileSourceFilter;
+import us.bringardner.parley.files.ISeekableInputStream;
+import us.bringardner.parley.files.fileproxy.FileProxy;
+import us.bringardner.parley.files.ftp.FtpFile.Permissions;
+import us.bringardner.parley.core.BaseObject;
+import us.bringardner.parley.ftp.client.FtpClient;
+import us.bringardner.parley.ftp.client.ClientFtpResponse;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -769,7 +769,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	/* 
 	 * Get an InputStream by doing an REST (if possible, otherwise startPos bytes are read and disgarded)
-	 * @see us.bringardner.io.filesource.FileSource#getInputStream(long)
+	 * @see us.bringardner.parley.files.FileSource#getInputStream(long)
 	 */
 	public InputStream getInputStream(long startingPos) throws IOException {
 		InputStream ret = null;

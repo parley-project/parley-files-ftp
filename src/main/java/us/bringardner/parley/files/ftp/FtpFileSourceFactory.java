@@ -27,7 +27,7 @@
  * Created on Nov 24, 2006
  *
  */
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.awt.Component;
 import java.io.IOException;
@@ -36,12 +36,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Properties;
 
-import us.bringardner.io.filesource.FileSource;
-import us.bringardner.io.filesource.FileSourceFactory;
-import us.bringardner.io.filesource.FileSourceUri;
-import us.bringardner.io.filesource.FileSourceUser;
-import us.bringardner.net.ftp.client.ClientFtpResponse;
-import us.bringardner.net.ftp.client.FtpClient;
+import us.bringardner.parley.files.FileSource;
+import us.bringardner.parley.files.FileSourceFactory;
+import us.bringardner.parley.files.FileSourceUri;
+import us.bringardner.parley.files.FileSourceUser;
+import us.bringardner.parley.ftp.client.ClientFtpResponse;
+import us.bringardner.parley.ftp.client.FtpClient;
 
 
 public class FtpFileSourceFactory extends FileSourceFactory {
@@ -431,7 +431,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	/* (non-Javadoc)
-	 * @see us.bringardner.io.filesource.FileSourceFactory#getEditPropertiesComponent()
+	 * @see us.bringardner.parley.files.FileSourceFactory#getEditPropertiesComponent()
 	 */
 
 	public Component getEditPropertiesComponent() {
@@ -442,7 +442,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 
 	/* (non-Javadoc)
-	 * @see us.bringardner.io.filesource.FileSourceFactory#setProperties(java.net.URL)
+	 * @see us.bringardner.parley.files.FileSourceFactory#setProperties(java.net.URL)
 	 */
 
 	public void setConnectionProperties(URL url) {
@@ -471,7 +471,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	/* (non-Javadoc)
-	 * @see us.bringardner.io.filesource.FileSourceFactory#setConnectionProperties(java.util.Properties)
+	 * @see us.bringardner.parley.files.FileSourceFactory#setConnectionProperties(java.util.Properties)
 	 */
 
 	public void setConnectionProperties(Properties prop) {

@@ -27,19 +27,19 @@
  * Created on Dec 14, 2006
  *
  */
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Date;
 
-import us.bringardner.core.BaseObject;
-import us.bringardner.net.ftp.client.ListEntry;
-import us.bringardner.net.ftp.FTP;
-import us.bringardner.net.ftp.client.ClientFtpResponse;
-import us.bringardner.net.ftp.client.FtpClient;
-import us.bringardner.net.ftp.server.commands.Site;
+import us.bringardner.parley.core.BaseObject;
+import us.bringardner.parley.ftp.client.ListEntry;
+import us.bringardner.parley.ftp.FTP;
+import us.bringardner.parley.ftp.client.ClientFtpResponse;
+import us.bringardner.parley.ftp.client.FtpClient;
+import us.bringardner.parley.ftp.server.commands.Site;
 
 
 
@@ -193,7 +193,7 @@ public class FtpFile extends BaseObject {
 	}
 
 	private void parseEntry(String entry) throws IOException {
-		//  The parsing is shared with bjl_net_ftp's FtpClientFile (ListEntry). This class used to
+		//  The parsing is shared with parley-ftp's FtpClientFile (ListEntry). This class used to
 		//  have its own copy, whose byte based cleanup garbled names when the owner or group had
 		//  non-ASCII characters, and which ignored the MLSx perm fact.
 		ListEntry e = ListEntry.parse(entry, factory.getFtpClient().isMlstSupported(), this::logError);
@@ -418,12 +418,12 @@ public class FtpFile extends BaseObject {
 
 	/**
 	 * This is not supported by standard Ftp.
-	 * However, us.bringardner.net.ftp.server.Server supports a 'SITE' command
+	 * However, us.bringardner.parley.ftp.server.Server supports a 'SITE' command
 	 * that allows us to do it.
 	 * 
 	 * @param lastModifiedTime
 	 * @return 
-	 * @see us.bringardner.net.ftp.server.FtpServer
+	 * @see us.bringardner.parley.ftp.server.FtpServer
 	 */
 	public boolean setLastModified(long lastModifiedTime) {
 		boolean ret = false;

@@ -17,5 +17,5 @@
 ## under the License.
 ##
 
-us.bringardner.io.filesource.ftp.FtpFileSourceFactory
-us.bringardner.io.filesource.ftp.FtpsFileSourceFactory
+us.bringardner.parley.files.ftp.FtpFileSourceFactory
+us.bringardner.parley.files.ftp.FtpsFileSourceFactory

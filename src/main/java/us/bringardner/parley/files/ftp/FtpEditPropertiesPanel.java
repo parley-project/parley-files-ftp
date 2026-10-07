@@ -23,12 +23,12 @@
  *
  * ~version~V000.01.02-V000.00.01-V000.00.00-
  */
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.awt.Dimension;
 import java.util.Properties;
 
-import us.bringardner.io.filesource.IConnectionPropertiesEditor;
+import us.bringardner.parley.files.IConnectionPropertiesEditor;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 import java.awt.event.ActionListener;
@@ -259,14 +259,14 @@ public class FtpEditPropertiesPanel extends javax.swing.JPanel implements
 	
 	
 	/* (non-Javadoc)
-	 * @see us.bringardner.io.filesource.IConnectionPropertiesEditor#getProperties()
+	 * @see us.bringardner.parley.files.IConnectionPropertiesEditor#getProperties()
 	 */
 	public Properties getProperties() {
 		return prop;
 	}
 
 	/* (non-Javadoc)
-	 * @see us.bringardner.io.filesource.IConnectionPropertiesEditor#setProperties(java.util.Properties)
+	 * @see us.bringardner.parley.files.IConnectionPropertiesEditor#setProperties(java.util.Properties)
 	 */
 	public void setProperties(Properties properties) {
 		prop = new Properties(properties);

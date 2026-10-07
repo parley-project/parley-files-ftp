@@ -1,10 +1,10 @@
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.io.IOException;
 
 import org.junit.jupiter.api.BeforeAll;
 
-import us.bringardner.io.filesource.test.AbstractTestClass;
+import us.bringardner.parley.files.test.AbstractTestClass;
 
 /** The shared FileSource tests over FTP. */
 public class TestFtp extends AbstractTestClass {

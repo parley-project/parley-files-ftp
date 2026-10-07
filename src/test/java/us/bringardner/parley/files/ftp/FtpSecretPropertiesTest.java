@@ -1,4 +1,4 @@
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -8,7 +8,7 @@ import java.util.TreeSet;
 
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.io.filesource.ftp.FtpFileSourceFactory;
+import us.bringardner.parley.files.ftp.FtpFileSourceFactory;
 
 /** BJL-21: the factory names its secret connection properties exactly. */
 public class FtpSecretPropertiesTest {

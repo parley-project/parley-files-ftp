@@ -23,14 +23,14 @@
  *
  * ~version~V000.00.01-V000.00.00-
  */
-package us.bringardner.io.filesource.ftps;
+package us.bringardner.parley.files.ftps;
 
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
 
-import us.bringardner.io.filesource.FileSourceURLConnction;
+import us.bringardner.parley.files.FileSourceURLConnction;
 
 /**
  * This class does nothing but create the URLConniction where required.

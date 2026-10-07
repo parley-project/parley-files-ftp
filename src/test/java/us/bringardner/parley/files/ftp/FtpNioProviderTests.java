@@ -1,10 +1,10 @@
-package us.bringardner.io.filesource.ftp;
+package us.bringardner.parley.files.ftp;
 
 import java.io.IOException;
 
 import org.junit.jupiter.api.BeforeAll;
 
-import us.bringardner.io.filesource.test.AbstractNioProviderTests;
+import us.bringardner.parley.files.test.AbstractNioProviderTests;
 
 /** The shared java.nio.file provider tests over FTP. */
 public class FtpNioProviderTests extends AbstractNioProviderTests {
