@@ -40,11 +40,11 @@ import java.nio.file.attribute.UserPrincipal;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.swing.ProgressMonitor;
 
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.FileSourceFilter;
+import us.bringardner.parley.files.FileSourceProgress;
 import us.bringardner.parley.files.ISeekableInputStream;
 import us.bringardner.parley.files.fileproxy.FileProxy;
 import us.bringardner.parley.files.ftp.FtpFile.Permissions;
@@ -574,7 +574,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	public FileSource[] listFiles() throws IOException {
-		return listFiles((ProgressMonitor)null);
+		return listFiles((FileSourceProgress)null);
 	}
 
 	public FileSource[] listFiles(FileSourceFilter filter) throws IOException {
@@ -829,7 +829,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		return factory.getUser()+"@"+"ftp://"+factory.getHost()+":"+factory.getPort()+getCanonicalPath();
 	}
 
-	public FileSource[] listFiles(ProgressMonitor progress) throws IOException {
+	public FileSource[] listFiles(FileSourceProgress progress) throws IOException {
 		if( kids_ == null ) {
 			synchronized (this) {
 				if( kids_ == null ) {

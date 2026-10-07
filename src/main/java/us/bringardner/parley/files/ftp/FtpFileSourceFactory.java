@@ -29,13 +29,14 @@
  */
 package us.bringardner.parley.files.ftp;
 
-import java.awt.Component;
 import java.io.IOException;
 import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.List;
 import java.util.Properties;
 
+import us.bringardner.parley.files.ConnectionSetting;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.FileSourceUri;
@@ -411,6 +412,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.setProperty(PROP_PSWD, passwd==null?"":passwd);        
 		ret.setProperty(PROP_ACCT, account==null?"":account);
 		ret.setProperty(PROP_SECURE,""+secure);
+		ret.setProperty(PROP_TIMEOUT,""+timeout);
 
 		return ret;
 	}
@@ -430,13 +432,17 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return ret;
 	}
 
-	/* (non-Javadoc)
-	 * @see us.bringardner.parley.files.FileSourceFactory#getEditPropertiesComponent()
-	 */
-
-	public Component getEditPropertiesComponent() {
-		Properties prop = new Properties(getConnectProperties());
-		return new FtpEditPropertiesPanel(prop);
+	@Override
+	public List<ConnectionSetting> getConnectionSettings() {
+		return List.of(
+				ConnectionSetting.text(PROP_HOST, "Host").asRequired(),
+				ConnectionSetting.integer(PROP_PORT, "Port", 1L, 65535L).withDefault(""+DEFAULT_PORT).asRequired(),
+				ConnectionSetting.text(PROP_USER, "User"),
+				ConnectionSetting.secret(PROP_PSWD, "Password"),
+				ConnectionSetting.bool(PROP_SECURE, "Use TLS (FTPS)"),
+				ConnectionSetting.secret(PROP_ACCT, "Account").asAdvanced()
+					.withDescription("RFC 959 ACCT; only some servers use it"),
+				ConnectionSetting.integer(PROP_TIMEOUT, "Timeout (ms)", 0L, null).asAdvanced().withDefault("4000"));
 	}
 
 
