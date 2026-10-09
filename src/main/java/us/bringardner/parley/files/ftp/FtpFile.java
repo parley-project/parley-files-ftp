@@ -30,208 +30,61 @@
 package us.bringardner.parley.files.ftp;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Date;
 
 import us.bringardner.parley.core.BaseObject;
-import us.bringardner.parley.ftp.client.ListEntry;
 import us.bringardner.parley.ftp.FTP;
 import us.bringardner.parley.ftp.client.ClientFtpResponse;
 import us.bringardner.parley.ftp.client.FtpClient;
+import us.bringardner.parley.ftp.client.FtpClientFile;
+import us.bringardner.parley.ftp.client.ListEntry;
 import us.bringardner.parley.ftp.server.commands.Site;
 
+/**
+ * A directory entry of an FTP server, on the connection of an {@link FtpFileSourceFactory}. Most
+ * of it is {@link FtpClientFile}; this adds the Unix permission bits, which are read from a LIST
+ * line when the entry didn't have them (MLSx permissions don't map onto them).
+ */
+public class FtpFile extends FtpClientFile {
 
+	private final FtpFileSourceFactory factory;
 
-public class FtpFile extends BaseObject {
+	private static Source source(FtpFileSourceFactory factory) {
+		return new Source() {
+			@Override
+			public FtpClient getFtpClient() throws IOException {
+				return factory.getFtpClient();
+			}
 
-	public static final char TYPE_DIR = 'd';
-	public static final char TYPE_FILE = '-';
-	//public static final ThreadSafeDateFormat YOUNG_DATE_FORMAT = new ThreadSafeDateFormat("MMM dd HH:mm yyyy");
-	//public static final ThreadSafeDateFormat OLD_DATE_FORMAT = new ThreadSafeDateFormat("MMM dd yyyy");
-
-	//public static final ThreadSafeDateFormat MLST_DATE_FORMAT = new ThreadSafeDateFormat("yyyyMMddHHmmSS.sss");
-	//public static final ThreadSafeDateFormat MLST_SHORT_DATE_FORMAT = new ThreadSafeDateFormat("yyyyMMddHHmmSS");
-
-	private String listEntry;
-	private String parent;
-	private FtpFileSourceFactory factory;
-	private String name;
-	private String owner;
-	private String group;
-	private long length;
-	private long lastModified;
-	private char type;
-	private char[] permissions;
-	// mls permissions are worthless and all servers support List so that what we'll use for permissions
-	//private String mlstPermissions;
-	private FtpFile parentFile;
-
+			@Override
+			public BaseObject getLogSource() {
+				return factory;
+			}
+		};
+	}
 
 	public FtpFile(String dirPath, String listEntry, FtpFileSourceFactory factory) throws IOException {
+		super(dirPath, listEntry, source(factory));
 		this.factory = factory;
-		this.listEntry = listEntry;
-		this.parent = dirPath.trim();
-
-		if( listEntry != null ) {
-			parseEntry(listEntry);
-		} else {
-			//  Assume this is a directory
-			this.type = TYPE_DIR;
-			int idx = dirPath.lastIndexOf(FtpClient.SEPERATOR_CHAR);
-			if(idx >= 0){
-				this.parent = dirPath.substring(0,idx);
-				this.name = dirPath.substring(idx+1);
-			} else {
-				this.parent = "";
-				this.name = dirPath;
-
-			}
-		}
 	}
 
 	/**
 	 * Only used in getParetFile
-	 * 
+	 *
 	 * @param factory
 	 */
 	public FtpFile(FtpFileSourceFactory factory) {
+		super(source(factory));
 		this.factory = factory;
 	}
 
 	@Override
-	public void logDebug(String msg) {factory.logDebug(msg);}
-	@Override
-	public void logDebug(String msg, Throwable error) {
-		factory.logDebug(msg, error);
+	protected FtpClientFile newPlaceholder() {
+		return new FtpFile(factory);
 	}
 
 	@Override
-	public void logError(String msg) {
-		factory.logError(msg);
-	}
-
-	@Override
-	public void logError(String msg, Throwable error) {
-		factory.logError(msg, error);
-	}
-
-	@Override
-	public void logInfo(String msg) {
-		factory.logInfo(msg);
-	}
-
-	@Override
-	public void logInfo(String msg, Throwable error) {
-		factory.logInfo(msg, error);
-	}
-
-	@Override
-	public boolean isDebugEnabled() {
-		return factory.isDebugEnabled();
-	}
-
-	@Override
-	public boolean isErrorEnabled() {
-		return factory.isErrorEnabled();
-	}
-	@Override
-	public boolean isInfoEnabled() {
-		return factory.isInfoEnabled();
-	}
-
-	public String toString() {
-		String ret = null;
-
-		if(isDirectory()) {
-			ret = getAbsolutePath()+" Directory";
-		} else {
-			ret = getAbsolutePath()+" "+getLength()+" "+(new Date(getLastModified()));
-		}
-		return ret;
-	}
-
-
-	public String getListEntry() {
-		return listEntry;
-	}
-
-	public String getParent() {
-		return parent;
-	}
-
 	public FtpFile getParetFile() {
-		if( parentFile == null && name.length()>0 && !name.equals(FtpClient.SEPERATOR)) {
-			synchronized (this) {
-				if( parentFile == null ) {
-					int idx = parent.lastIndexOf(FtpClient.SEPERATOR_CHAR);
-					if( idx > 0 ) {
-						String pp = parent.substring(0,idx);
-						String pn = parent.substring(idx+1);
-						parentFile = new FtpFile(factory);
-						parentFile.listEntry = "";
-						parentFile.name = pn;                        
-						parentFile.parent = pp;
-						parentFile.type = TYPE_DIR;
-
-						/*
-						 * These are probably wrong but FTP does not
-						 * provide a way to get information about a directory 
-						 * without listing every file in the parents parent.
-						 */
-						parentFile.owner = owner;
-						parentFile.permissions = permissions;
-						parentFile.lastModified = lastModified;
-					}
-
-				}
-			}
-
-		}
-
-		return parentFile;
-	}
-
-	private void parseEntry(String entry) throws IOException {
-		//  The parsing is shared with parley-ftp's FtpClientFile (ListEntry). This class used to
-		//  have its own copy, whose byte based cleanup garbled names when the owner or group had
-		//  non-ASCII characters, and which ignored the MLSx perm fact.
-		ListEntry e = ListEntry.parse(entry, factory.getFtpClient().isMlstSupported(), this::logError);
-		name = e.getName();
-		owner = e.getOwner();
-		group = e.getGroup();
-		length = e.getLength();
-		lastModified = e.getLastModified();
-		type = e.getType();
-		permissions = e.getPermissions();
-	}
-
-	public boolean isDirectory() {
-		return (type == TYPE_DIR);
-	}
-
-	public boolean isFile () {
-		return !isDirectory();
-	}
-
-	public long getLastModified() {
-		return lastModified;
-	}
-
-	public long getLength() {
-		return length;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public String getOwner() {
-		return owner;
-	}
-
-	public String getGroup() {
-		return group;
+		return (FtpFile) super.getParetFile();
 	}
 
 	public enum Permissions {
@@ -297,20 +150,23 @@ public class FtpFile extends BaseObject {
 	}
 
 
+	/**
+	 * The permissions, read from the server the first time if the entry didn't have them; all
+	 * dashes if the server doesn't say.
+	 */
+	@Override
 	public char[] getPermissions() throws IOException {
 		if( permissions == null || permissions.length != 9) {
 			synchronized (this) {
 				if( permissions == null || permissions.length != 9) {
 					permissions = listPermissions();
 				}
-			}			
+			}
 		}
-
 		if( permissions == null ) {
-			// default to no permissions 
+			// default to no permissions
 			return "---------".toCharArray();
 		}
-
 		return permissions;
 	}
 
@@ -320,7 +176,7 @@ public class FtpFile extends BaseObject {
 	 * in its parent's listing. (Directories used to get no permissions.)
 	 */
 	private char[] listPermissions() throws IOException {
-		FtpClient client = factory.getFtpClient();
+		FtpClient client = client();
 		if( !isDirectory()) {
 			String[] resp= client.executeList(true, getAbsolutePath());
 			// should be one and only one line
@@ -344,109 +200,6 @@ public class FtpFile extends BaseObject {
 		return null;
 	}
 
-	public InputStream getInputStream() throws IOException {
-		return getInputStream(false);
-	}
-
-	public InputStream getInputStream(long startingPos) throws IOException {
-		return getInputStream(false, startingPos);
-	}
-
-	public InputStream getInputStream(boolean ascii) throws IOException {
-		if( !isFile() ) {
-			throw new IOException("Can't create stream from directory");
-		}
-		return factory.getFtpClient().getInputStream(getParent()+FtpClient.SEPERATOR+name, ascii);
-	}
-
-	public InputStream getInputStream(boolean ascii, long startingPos) throws IOException {
-		if( !isFile() ) {
-			throw new IOException("Can't create stream from directory");
-		}
-		return factory.getFtpClient().getInputStream(getParent()+FtpClient.SEPERATOR+name, ascii, startingPos);
-	}
-
-	public OutputStream getOutputStream(boolean ascii, boolean append) throws IOException {
-		if( !isFile() ) {
-			throw new IOException("Can't create stream from directory");
-		}
-		return factory.getFtpClient().getOutputStream(getParent()+FtpClient.SEPERATOR+name, ascii, append);
-	}
-
-	public String getAbsolutePath() {
-		String p = getParent();
-		String nm = getName();
-		String ret = null;
-		if( p.equals("/")) {
-			ret = FtpClient.SEPERATOR+nm;
-		} else {
-			ret = p+FtpClient.SEPERATOR+nm;
-		}
-
-
-		return ret;
-	}
-
-	public boolean delete() throws IOException {
-
-		return factory.getFtpClient().delete(getAbsolutePath());
-	}
-
-	public OutputStream getOutputStream() throws IOException {
-		return getOutputStream(false, false);
-	}
-
-	public boolean mkdir() throws IOException {
-		boolean ret = factory.getFtpClient().mkDir(getAbsolutePath());
-		return ret;
-	}
-
-	public boolean mkdirs() throws IOException {
-		boolean ret = factory.getFtpClient().mkDirs(getAbsolutePath());
-		return ret;
-	}
-
-	public boolean renameTo(String newAbsolutePath) throws IOException {
-
-		return factory.getFtpClient().rename(getAbsolutePath(), newAbsolutePath);
-	}
-
-	public OutputStream getAppendOutputStream() throws IOException {
-
-		return getOutputStream(false, false);
-	}
-
-	/**
-	 * This is not supported by standard Ftp.
-	 * However, us.bringardner.parley.ftp.server.Server supports a 'SITE' command
-	 * that allows us to do it.
-	 * 
-	 * @param lastModifiedTime
-	 * @return 
-	 * @see us.bringardner.parley.ftp.server.FtpServer
-	 */
-	public boolean setLastModified(long lastModifiedTime) {
-		boolean ret = false;
-		try {
-			FtpClient client = factory.getFtpClient();
-			ClientFtpResponse res = client.executeCommand(FTP.SITE,"modDate "+lastModifiedTime+" "+getAbsolutePath());
-
-			if( res._getResponseCode() == FTP.REPLY_213_FILE_STATUS) {
-				this.lastModified = lastModifiedTime;
-				ret = true;
-			}
-		} catch (IOException e) {
-			logError("Error setting modDate",e);
-		}
-		return ret;
-	}
-
-	public void dereferenceChildern() {
-		// Nothing to do but probably should either here or in FtpFileSource.
-
-	}
-	
-	
 	public int getUnixPermitionValue(char perms []) throws IOException {
 		
 		int user = ((perms[Permissions.OwnerRead.ordinal()]=='r') ? 4:0)
@@ -479,7 +232,7 @@ public class FtpFile extends BaseObject {
 			int val = getUnixPermitionValue(perms);
 			String arg = Integer.toOctalString(val);
 			String path = getAbsolutePath();
-			ClientFtpResponse resp = factory.getFtpClient().executeCommand(FTP.SITE, Site.CMD_CHMOD,arg,path);
+			ClientFtpResponse resp = client().executeCommand(FTP.SITE, Site.CMD_CHMOD,arg,path);
 			ret = resp.isPositiveComplet();
 			//  just to make sure client stays in sync with server;
 			permissions = null;
