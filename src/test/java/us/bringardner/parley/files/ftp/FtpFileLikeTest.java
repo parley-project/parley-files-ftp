@@ -66,7 +66,15 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		}
 	}
 
+	/**
+	 * Removes a tree, making each directory writable and enterable first: an earlier run (or a case
+	 * that failed) can leave a read-only directory, which can't have its children deleted. This
+	 * silently failed to, so the next run found its "empty" tree numbers already used, with a
+	 * read-only directory in them, which looked like a difference in the FTP client.
+	 */
 	private static void deleteAll(java.io.File f) {
+		f.setWritable(true);
+		f.setExecutable(true);
 		java.io.File[] kids = f.listFiles();
 		if( kids != null ) {
 			for(java.io.File k : kids) {
@@ -84,17 +92,6 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 	@Override
 	protected boolean permissionsOfExistingPathsAreComparable() {
 		return false;
-	}
-
-	/**
-	 * Not fixed yet. On its own this case passes; after the other permission cases in the same
-	 * class the removal of a directory's execute bit reports failure, which looks like permission
-	 * information the shared client cached, and the server also refuses a chmod on a file it was
-	 * just made read-only (450). Reported to the owner as an open item, not hidden.
-	 */
-	@Override
-	protected java.util.Set<String> knownDifferences() {
-		return java.util.Set.of("dir.setExecutable(false)");
 	}
 
 	@Override
