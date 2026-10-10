@@ -177,6 +177,22 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	
+	/** As java.io.File: nothing can be read from, written to or run at a path that doesn't exist. */
+	@Override
+	public boolean canRead() throws IOException {
+		return exists() && FileSource.super.canRead();
+	}
+
+	@Override
+	public boolean canWrite() throws IOException {
+		return exists() && FileSource.super.canWrite();
+	}
+
+	@Override
+	public boolean canExecute() throws IOException {
+		return exists() && FileSource.super.canExecute();
+	}
+
 	@Override
 	public boolean canOwnerRead() throws IOException {
 		boolean ret = false;
@@ -279,9 +295,24 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		return mine.compareTo(String.valueOf(o));
 	}
 
+	/**
+	 * As java.io.File: true if the file was created, false if it was already there, and an
+	 * IOException if the directory it goes in isn't. FTP has no command that creates an empty
+	 * file, so this stores zero bytes. (Unlike File's it isn't atomic: another client could
+	 * create the file between the check and the store.)
+	 */
 	public boolean createNewFile() throws IOException {
-		// This is not supported with FTP
-		return false;
+		if( exists() ) {
+			return false;
+		}
+		FileSource parent = getParentFile();
+		if( parent == null || !parent.isDirectory() ) {
+			throw new IOException("No such file or directory: "+getParent());
+		}
+		try( OutputStream out = openOutput(false, 0) ) {
+			// nothing to write: opening and closing the store creates the file
+		}
+		return exists();
 	}
 
 	public boolean delete() {
@@ -289,6 +320,10 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 		try {
 			FtpFile tmp = getTarget();
+			if( tmp == null ) {
+				// as java.io.File: nothing to delete
+				return false;
+			}
 
 			ret = tmp.delete();
 			if( ret ) {
@@ -533,8 +568,8 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	public boolean isFile()  throws IOException {
-
-		return !isDirectory();
+		// as java.io.File: a path that isn't there is not a file (it used to be "not a directory")
+		return exists() && !isDirectory();
 	}
 
 	public boolean isVersionSupported() {
@@ -590,7 +625,10 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public FileSource[] listFiles(FileSourceFilter filter) throws IOException {
 		FileSource[] ret = null;
 		FileSource[] list = listFiles();
-		if( list != null && filter != null ) {
+		if( list != null && filter == null ) {
+			// no filter: everything (this returned null, so list() was null for every directory)
+			ret = list;
+		} else if( list != null ) {
 			List<FileSource> tmp = new ArrayList<FileSource>();
 			for (int idx = 0; idx < list.length; idx++) {
 				if(filter.accept(list[idx])) {
@@ -638,8 +676,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public boolean mkdirs()  throws IOException {
 
 		if(exists()) {
-			//already done 
-			return true;
+			// as java.io.File: true only if it was created; false when there is already a
+			// directory (or a file) at the path
+			return false;
 		}
 
 		boolean ret = false;
@@ -949,23 +988,28 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	@Override
 	public GroupPrincipal getGroup() throws IOException {
-
+		FtpFile tmp = getTarget();
+		final String name = tmp == null ? null : tmp.getGroup();
 		return new GroupPrincipal() {
 
 			@Override
 			public String getName() {
-				return target.getGroup();
+				return name;
 			}
 		};
 	}
 
 	@Override
 	public UserPrincipal getOwner() throws IOException {
+		// read now: the field is null until something has looked the file up, and for a path
+		// that isn't there (it was read lazily, and threw a NullPointerException)
+		FtpFile tmp = getTarget();
+		final String name = tmp == null ? null : tmp.getOwner();
 		return new UserPrincipal() {
 
 			@Override
 			public String getName() {
-				return target.getOwner();
+				return name;
 			}
 		};
 	}
