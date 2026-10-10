@@ -266,12 +266,17 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		return ret;
 	}
 
+	/**
+	 * Orders by path, then by kind, like the other FileSources. It used to compare the other
+	 * way round (the other's text against this path), so files sorted in descending order.
+	 */
 	public int compareTo(Object o) {
-		try {
-			return o.toString().compareTo(getCanonicalPath());
-		} catch (IOException e) {
-			return -1;
+		String mine = pathOf(this);
+		if( o instanceof FileSource ) {
+			int ret = mine.compareTo(((FileSource) o).getAbsolutePath());
+			return ret != 0 ? ret : getClass().getName().compareTo(o.getClass().getName());
 		}
+		return mine.compareTo(String.valueOf(o));
 	}
 
 	public boolean createNewFile() throws IOException {
@@ -675,6 +680,37 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		} catch (IOException e) {
 			return "Error "+e;
 		}
+	}
+
+	/**
+	 * Equal when it is the same path on the same server and account, as with the other
+	 * FileSources: like java.io.File, two handles for one file are equal.
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		if( this == obj ) {
+			return true;
+		}
+		if( !(obj instanceof FtpFileSource) ) {
+			return false;
+		}
+		FtpFileSource f = (FtpFileSource) obj;
+		return pathOf(this).equals(pathOf(f)) && factory.isSameFileSystem(f.factory);
+	}
+
+	/** Hashes the path, which equals() compares (the same path on two servers just shares a bucket). */
+	@Override
+	public int hashCode() {
+		return pathOf(this).hashCode();
+	}
+
+	/** The path, built from the parent and name: no I/O, and it can't fail. */
+	private static String pathOf(FtpFileSource f) {
+		String name = f.name == null ? "" : f.name;
+		if( f.parent == null ) {
+			return name;
+		}
+		return f.parent.equals("/") ? "/" + name : f.parent + "/" + name;
 	}
 
 	public URL toURL() throws MalformedURLException {
