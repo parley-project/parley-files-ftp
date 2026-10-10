@@ -915,8 +915,16 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public boolean renameTo(FileSource dest) {
 		boolean ret = false;
 
+		// only to another path of this server and account (this cast threw for anything else)
+		if( !(dest instanceof FtpFileSource) || !((FtpFileSource) dest).factory.isSameFileSystem(factory) ) {
+			return false;
+		}
 		try {
 			FtpFile tmp = getTarget();
+			if( tmp != null && pathOf(this).equals(pathOf((FtpFileSource) dest)) ) {
+				// as java.io.File: renaming a file to itself is a success that changes nothing
+				return true;
+			}
 			if( tmp != null ) {
 				ret = tmp.renameTo(dest.getAbsolutePath());
 				if( ret ) {
@@ -1119,26 +1127,25 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	@Override
 	public boolean setWritable(boolean writetable, boolean ownerOnly) throws IOException {
-		boolean ret = setOtherWritable(writetable);
-		if( ret ) {
-			if( !ownerOnly ) {
-				setGroupWritable(writetable);
-				setOtherWritable(writetable);
-			}
-		} 
-		return false;
+		// the owner's bit, then the group's and other's unless ownerOnly. This set "other" first
+		// and always answered false.
+		boolean ret = setWritable(writetable);
+		if( ret && !ownerOnly ) {
+			setGroupWritable(writetable);
+			setOtherWritable(writetable);
+		}
+		return ret;
 	}
 
 	@Override
 	public boolean setExecutable(boolean executable, boolean ownerOnly) throws IOException {
 		boolean ret = setOwnerExecutable(executable);
-		if( ret ) {
-			if( !ownerOnly ) {
-				setGroupExecutable(executable);
-				setOtherExecutable(executable);
-			}
+		if( ret && !ownerOnly ) {
+			setGroupExecutable(executable);
+			setOtherExecutable(executable);
 		}
-		return false;
+		// this always answered false, whatever happened
+		return ret;
 	}
 
 	@Override
@@ -1205,12 +1212,11 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public boolean setReadOnly() throws IOException {
 		FtpFile tmp = getTarget();
 		if( tmp != null ) {
+			// as java.io.File.setReadOnly: nobody can write it. (This also took away everyone's
+			// execute permission, which File's doesn't.)
 			boolean ret = tmp.setPermision(Permissions.OwnerWrite, false);
-			if( ret ) ret = tmp.setPermision(Permissions.OwnerExecute, false);
 			if( ret ) ret = tmp.setPermision(Permissions.GroupWrite, false);
-			if( ret ) ret = tmp.setPermision(Permissions.GroupExecute, false);
 			if( ret ) ret = tmp.setPermision(Permissions.OtherWrite, false);
-			if( ret ) ret = tmp.setPermision(Permissions.OtherExecute, false);
 			return ret;
 		}
 		
