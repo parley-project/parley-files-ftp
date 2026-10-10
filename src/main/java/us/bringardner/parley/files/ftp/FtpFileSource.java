@@ -347,7 +347,14 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		// A missing file is looked up again each time: it may have been created
 		// since, by mkdirs() or by another FileSource for the same path. (A
 		// one-shot flag used to answer "no" for good after the first look.)
-		return getTarget() != null;
+		FtpFile tmp = getTarget();
+		if( tmp == null ) {
+			return false;
+		}
+		boolean[] link = new boolean[1];
+		Boolean viaLink = throughLink(FileSource::exists, Boolean.FALSE, link);
+		// a link that points at nothing is there, but doesn't exist (as java.io.File)
+		return link[0] ? viaLink : true;
 	}
 
 	public String getAbsolutePath() {
@@ -526,7 +533,12 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	public boolean isDirectory() throws IOException {
 		FtpFile tmp = getTarget();
-		return tmp != null && tmp.isDirectory();
+		if( tmp == null ) {
+			return false;
+		}
+		boolean[] link = new boolean[1];
+		Boolean viaLink = throughLink(FileSource::isDirectory, Boolean.FALSE, link);
+		return link[0] ? viaLink : tmp.isDirectory();
 	}
 
 	/**
@@ -605,7 +617,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 		FtpFile tmp = getTarget();
 		if( tmp != null ) {
-			ret = tmp.getLastModified();
+			boolean[] link = new boolean[1];
+			Long viaLink = throughLink(FileSource::lastModified, 0L, link);
+			ret = link[0] ? viaLink : tmp.getLastModified();
 		}
 		return ret;
 	}
@@ -615,7 +629,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 		FtpFile tmp = getTarget();
 		if( tmp != null ) {
-			ret = tmp.getLength();
+			boolean[] link = new boolean[1];
+			Long viaLink = throughLink(FileSource::length, 0L, link);
+			ret = link[0] ? viaLink : tmp.getLength();
 		}
 		return ret;
 	}
@@ -991,9 +1007,69 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 
-	public FileSource getLinkedTo() {
-		// Not supported in FTP
-		return null;
+	/**
+	 * Where this symbolic link points, if the server's listing says so: a LIST line "name -> target"
+	 * or an MLST type "OS.unix=slink:target". FTP has no command for links, so a server that
+	 * doesn't say shows a link as the file or directory it leads to, and this is null.
+	 *
+	 * @return the target (a relative one is taken from this link's directory, and ".." resolved),
+	 * which may not exist; null if this isn't a link
+	 */
+	public FileSource getLinkedTo() throws IOException {
+		FtpFile tmp = getTarget();
+		String to = tmp == null ? null : tmp.getLinkTarget();
+		if( to == null || to.isEmpty() ) {
+			return null;
+		}
+		String path = to.startsWith("/") ? to : (parent == null || parent.isEmpty() ? "" : parent) + "/" + to;
+		java.util.ArrayDeque<String> parts = new java.util.ArrayDeque<>();
+		for(String part : path.split("/")) {
+			if( part.isEmpty() || part.equals(".") ) {
+				continue;
+			}
+			if( part.equals("..") ) {
+				parts.pollLast();
+			} else {
+				parts.addLast(part);
+			}
+		}
+		return factory.createFileSource("/" + String.join("/", parts));
+	}
+
+	/** How many links an answer is followed through before it is taken to be a loop. */
+	private static final int MAX_LINKS = 40;
+	private static final ThreadLocal<int[]> LINK_DEPTH = ThreadLocal.withInitial(() -> new int[1]);
+
+	private interface LinkQuery<T> {
+		T ask(FileSource target) throws IOException;
+	}
+
+	/**
+	 * As java.io.File does, a link answers for what it points to. null: this isn't a link (the
+	 * answer is this file's own); otherwise the answer from its target, or whenLoop if the links
+	 * lead back to themselves.
+	 */
+	private <T> T throughLink(LinkQuery<T> query, T whenLoop, boolean[] wasLink) throws IOException {
+		FtpFile tmp = getTarget();
+		if( tmp == null || tmp.getLinkTarget() == null ) {
+			wasLink[0] = false;
+			return null;
+		}
+		wasLink[0] = true;
+		int[] depth = LINK_DEPTH.get();
+		if( depth[0] >= MAX_LINKS ) {
+			return whenLoop;
+		}
+		FileSource to = getLinkedTo();
+		if( to == null ) {
+			return whenLoop;
+		}
+		depth[0]++;
+		try {
+			return query.ask(to);
+		} finally {
+			depth[0]--;
+		}
 	}
 
 	public boolean isHidden() {
