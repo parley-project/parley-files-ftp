@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.Random;
 
@@ -21,6 +22,10 @@ import us.bringardner.parley.core.ILogger.Level;
 import us.bringardner.parley.files.ConnectionSettings;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
+import us.bringardner.parley.files.StreamOption;
+import us.bringardner.parley.files.StreamOptions;
+import us.bringardner.parley.ftp.client.ClientFtpInputStream;
+import us.bringardner.parley.ftp.client.ClientFtpOutputStream;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -133,6 +138,84 @@ public class FtpBufferSizeTest {
 		System.setProperty(SYSTEM_PROPERTY, "10");
 		assertEquals(FtpFileSourceFactory.MIN_BUFFER_SIZE, new FtpFileSourceFactory().getBufferSize());
 		assertFalse(new FtpFileSourceFactory().getConnectProperties().containsKey(KEY));
+	}
+
+	/** A stream opened with StreamOptions gets its own buffer; without them it gets the factory's. */
+	@Test
+	void streamsTakeTheirOwnBufferSize() throws Exception {
+		Path root = Paths.get("target", "FtpStreamOptionsRoot").toAbsolutePath();
+		Files.createDirectories(root);
+		FtpServer server = new FtpServer();
+		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
+		server.setPort(Integer.parseInt(System.getProperty("FtpStreamOptionsPort", "8024")));
+		server.getLogger().setLevel(Level.ERROR);
+		server.start();
+		FtpFileSourceFactory factory = null;
+		try {
+			long start = System.currentTimeMillis();
+			while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
+				Thread.sleep(50);
+			}
+			assertTrue(server.isRunning(), "FTP server did not start");
+
+			Properties prop = new Properties();
+			prop.setProperty(FtpFileSourceFactory.PROP_USER, "ftp");
+			prop.setProperty(FtpFileSourceFactory.PROP_PSWD, "foo@bar.com");
+			prop.setProperty(FtpFileSourceFactory.PROP_HOST, "localhost");
+			prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
+			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
+			prop.setProperty(KEY, "20000");
+			factory = new FtpFileSourceFactory();
+			factory.getLogger().setLevel(Level.ERROR);
+			assertTrue(factory.connect(prop), "can't connect to the FTP server");
+
+			FileSource file = factory.createFileSource("/streamOptions.bin");
+			assertEquals(java.util.Set.of(StreamOption.BUFFER_SIZE), file.supportedStreamOptions());
+			assertEquals(20000, file.getStreamDefaults().bufferSize(), "what a plain open uses");
+
+			byte[] data = new byte[250_000];
+			new Random(5).nextBytes(data);
+
+			// no options: the connection's size; options: this stream's own
+			try (OutputStream out = file.getOutputStream(false)) {
+				assertEquals(20000, ((ClientFtpOutputStream) out).getBufferSize());
+				out.write(data, 0, 100_000);
+			}
+			try (OutputStream out = file.getOutputStream(true, StreamOptions.buffer(50_000))) {
+				assertEquals(50_000, ((ClientFtpOutputStream) out).getBufferSize());
+				out.write(data, 100_000, 150_000);
+			}
+			try (InputStream in = file.getInputStream()) {
+				assertEquals(20000, ((ClientFtpInputStream) in).getBufferSize());
+				assertArrayEquals(data, in.readAllBytes());
+			}
+			try (InputStream in = file.getInputStream(StreamOptions.buffer(9_000))) {
+				assertEquals(9_000, ((ClientFtpInputStream) in).getBufferSize());
+				assertArrayEquals(data, in.readAllBytes());
+			}
+			try (InputStream in = file.getInputStream(200_000, StreamOptions.buffer(12_000))) {
+				assertEquals(12_000, ((ClientFtpInputStream) in).getBufferSize());
+				assertArrayEquals(Arrays.copyOfRange(data, 200_000, data.length), in.readAllBytes());
+			}
+			// options that say nothing about the buffer, or null, mean the connection's size
+			try (InputStream in = file.getInputStream(StreamOptions.NONE.with(StreamOption.CHUNK_SIZE, 4096))) {
+				assertEquals(20000, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(data.length, in.readAllBytes().length);
+			}
+			try (InputStream in = file.getInputStream((StreamOptions) null)) {
+				assertEquals(20000, ((ClientFtpInputStream) in).getBufferSize());
+			}
+			// too big is kept to the factory's limit
+			try (InputStream in = file.getInputStream(StreamOptions.buffer(Integer.MAX_VALUE))) {
+				assertEquals(FtpFileSourceFactory.MAX_BUFFER_SIZE, ((ClientFtpInputStream) in).getBufferSize());
+			}
+			file.delete();
+		} finally {
+			if( factory != null ) {
+				factory.disConnect();
+			}
+			server.stop();
+		}
 	}
 
 	/** The value reaches the client of a real connection, and transfers still come out right. */

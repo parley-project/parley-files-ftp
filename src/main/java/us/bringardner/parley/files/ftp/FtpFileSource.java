@@ -46,6 +46,8 @@ import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.FileSourceFilter;
 import us.bringardner.parley.files.FileSourceProgress;
 import us.bringardner.parley.files.ISeekableInputStream;
+import us.bringardner.parley.files.StreamOption;
+import us.bringardner.parley.files.StreamOptions;
 import us.bringardner.parley.files.fileproxy.FileProxy;
 import us.bringardner.parley.files.ftp.FtpFile.Permissions;
 import us.bringardner.parley.core.BaseObject;
@@ -385,17 +387,20 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	public OutputStream getOutputStream(boolean append) throws FileNotFoundException {
+		return openOutput(append, 0);
+	}
+
+	/**
+	 * @param bufferSize this stream's buffer in bytes, or 0 for the connection's transfer buffer size
+	 */
+	private OutputStream openOutput(boolean append, int bufferSize) throws FileNotFoundException {
 		OutputStream ret = null;
 
 		try {
 			String path = getAbsolutePath();
 			FtpClient client = ((FtpFileSourceFactory)getFileSourceFactory()).getFtpClient();
 
-			if( append) {
-				ret = client.getAppendOutputStream(path); 
-			} else {
-				ret = client.getOutputStream(path);	 
-			}
+			ret = client.getOutputStream(path, false, append, bufferSize);
 
 			// If it did not exist before in may now.
 
@@ -765,6 +770,45 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			parent = idx == 0 ? FtpClient.SEPERATOR : p.substring(0, idx);
 			name = p.substring(idx+1);
 		}
+	}
+
+	// ---- streams with their own buffer size (see StreamOptions)
+
+	/** FTP buffers its data connection; that buffer is the one setting a stream has here. */
+	@Override
+	public java.util.Set<StreamOption<?>> supportedStreamOptions() {
+		return java.util.Collections.singleton(StreamOption.BUFFER_SIZE);
+	}
+
+	/** The connection's buffer size, which a stream opened without one uses. */
+	@Override
+	public StreamOptions getStreamDefaults() {
+		return StreamOptions.buffer(((FtpFileSourceFactory)getFileSourceFactory()).getBufferSize());
+	}
+
+	/** The buffer size asked for, kept to what the factory allows; 0 when none was. */
+	private static int bufferSizeIn(StreamOptions options) {
+		int size = StreamOptions.orNone(options).bufferSize();
+		return size > 0 ? Math.min(size, FtpFileSourceFactory.MAX_BUFFER_SIZE) : 0;
+	}
+
+	@Override
+	public InputStream getInputStream(StreamOptions options) throws IOException {
+		return getInputStream(0, options);
+	}
+
+	@Override
+	public InputStream getInputStream(long startingPos, StreamOptions options) throws IOException {
+		FtpFile tmp = getTarget();
+		if( tmp == null ) {
+			throw new FileNotFoundException(getAbsolutePath()+" does not exist");
+		}
+		return tmp.getInputStream(false, startingPos, bufferSizeIn(options));
+	}
+
+	@Override
+	public OutputStream getOutputStream(boolean append, StreamOptions options) throws IOException {
+		return openOutput(append, bufferSizeIn(options));
 	}
 
 	/* 
