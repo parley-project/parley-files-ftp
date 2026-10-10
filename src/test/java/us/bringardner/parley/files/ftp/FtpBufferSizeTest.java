@@ -178,36 +178,36 @@ public class FtpBufferSizeTest {
 
 			// no options: the connection's size; options: this stream's own
 			try (OutputStream out = file.getOutputStream(false)) {
-				assertEquals(20000, ((ClientFtpOutputStream) out).getBufferSize());
+				assertEquals(20000, ((ClientFtpOutputStream) FtpFileSourceFactory.unwrap(out)).getBufferSize());
 				out.write(data, 0, 100_000);
 			}
 			try (OutputStream out = file.getOutputStream(true, StreamOptions.buffer(50_000))) {
-				assertEquals(50_000, ((ClientFtpOutputStream) out).getBufferSize());
+				assertEquals(50_000, ((ClientFtpOutputStream) FtpFileSourceFactory.unwrap(out)).getBufferSize());
 				out.write(data, 100_000, 150_000);
 			}
 			try (InputStream in = file.getInputStream()) {
-				assertEquals(20000, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(20000, ((ClientFtpInputStream) FtpFileSourceFactory.unwrap(in)).getBufferSize());
 				assertArrayEquals(data, in.readAllBytes());
 			}
 			try (InputStream in = file.getInputStream(StreamOptions.buffer(9_000))) {
-				assertEquals(9_000, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(9_000, ((ClientFtpInputStream) FtpFileSourceFactory.unwrap(in)).getBufferSize());
 				assertArrayEquals(data, in.readAllBytes());
 			}
 			try (InputStream in = file.getInputStream(200_000, StreamOptions.buffer(12_000))) {
-				assertEquals(12_000, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(12_000, ((ClientFtpInputStream) FtpFileSourceFactory.unwrap(in)).getBufferSize());
 				assertArrayEquals(Arrays.copyOfRange(data, 200_000, data.length), in.readAllBytes());
 			}
 			// options that say nothing about the buffer, or null, mean the connection's size
 			try (InputStream in = file.getInputStream(StreamOptions.NONE.with(StreamOption.CHUNK_SIZE, 4096))) {
-				assertEquals(20000, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(20000, ((ClientFtpInputStream) FtpFileSourceFactory.unwrap(in)).getBufferSize());
 				assertEquals(data.length, in.readAllBytes().length);
 			}
 			try (InputStream in = file.getInputStream((StreamOptions) null)) {
-				assertEquals(20000, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(20000, ((ClientFtpInputStream) FtpFileSourceFactory.unwrap(in)).getBufferSize());
 			}
 			// too big is kept to the factory's limit
 			try (InputStream in = file.getInputStream(StreamOptions.buffer(Integer.MAX_VALUE))) {
-				assertEquals(FtpFileSourceFactory.MAX_BUFFER_SIZE, ((ClientFtpInputStream) in).getBufferSize());
+				assertEquals(FtpFileSourceFactory.MAX_BUFFER_SIZE, ((ClientFtpInputStream) FtpFileSourceFactory.unwrap(in)).getBufferSize());
 			}
 			file.delete();
 		} finally {

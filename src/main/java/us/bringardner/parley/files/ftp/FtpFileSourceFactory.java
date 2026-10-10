@@ -141,6 +141,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	private  FtpFileSource currentDirectory; 
 	private  FtpClient client;
+	/** false after disConnect, so a stream that finishes then closes its connection instead of keeping it */
+	private volatile boolean connectionOpen = true;
 	private  String host;
 	private  int port = -1;
 	private  String user;
@@ -288,33 +290,211 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return this.currentDirectory;
 	}
 
+	/** Opens and logs on one more connection to the server, configured as the main one is. */
+	private FtpClient connectNewClient() throws IOException {
+		FtpClientWrapper tmp = new FtpClientWrapper(this,getHost(),getPort());
+		tmp.setSecure(secure);
+		Integer buffer = configuredBufferSize();
+		if( buffer != null ) {
+			tmp.setTransferBufferSize(buffer);
+		}
+		// TODO:  Configure setRequestSecure
+		tmp.setRequestSecure(false);
+		tmp.setCmdTimeout(timeout);
+		tmp.setTxferTimeout(timeout);
+
+		if( !tmp.connect(getUser(),getPasswd(),getAccount())) {
+			ClientFtpResponse res = tmp.getLastResponse();
+			String reply = res == null ? "No reply availible": res.getResponseText();
+			String msg = "Can't log on to "+getHost()+":"+getPort()+" user= "+getUser()+" reply="+reply;
+			logError(msg);
+			tmp.close();
+			throw new IllegalArgumentException(msg);
+		}
+		return tmp;
+	}
+
+	/**
+	 * The connection commands (stat, list, mkdir, rename...) use. A control connection can run
+	 * one transfer and rejects every command while it does, so streams use their own
+	 * connections (see {@link #openTransfer()}) and this one is never tied up by one.
+	 */
 	public  FtpClient getFtpClient() throws SocketException, IOException {
 		if( client == null ) {
 			synchronized (this) {
 				if( client == null ) {
-
-					FtpClientWrapper tmp = new FtpClientWrapper(this,getHost(),getPort());
-					tmp.setSecure(secure);
-					Integer buffer = configuredBufferSize();
-					if( buffer != null ) {
-						tmp.setTransferBufferSize(buffer);
-					}
-					// TODO:  Configure setRequestSecure
-					tmp.setRequestSecure(false);
-
-					if( !tmp.connect(getUser(),getPasswd(),getAccount())) {
-						ClientFtpResponse res = client.getLastResponse();                
-						String reply = res == null ? "No reply availible": res.getResponseText();
-						String msg = "Can't log on to "+getHost()+":"+getPort()+" user= "+getUser()+" reply="+reply;
-						logError(msg);
-						throw new IllegalArgumentException(msg);
-					}
-					client = tmp;
+					client = connectNewClient();
 				}
 			}
 		}
 
 		return client;
+	}
+
+	// ---- connections for streams
+
+	/** How many finished transfer connections are kept open for the next stream to use. */
+	public static final int MAX_IDLE_TRANSFER_CONNECTIONS = 4;
+
+	private final java.util.ArrayDeque<FtpClient> idleTransfer = new java.util.ArrayDeque<>();
+
+	/**
+	 * A connection for one stream, and what to do when it is done with it. Streams that are open
+	 * at the same time each have their own, so any number can be read or written at once (as
+	 * with files), and commands on the main connection work while they are open.
+	 * <p>
+	 * A finished connection is kept for the next stream (a login costs more than a transfer of a
+	 * small file), up to {@link #MAX_IDLE_TRANSFER_CONNECTIONS}. If the server won't take another
+	 * connection (many limit a user to a few), the main one is used when it isn't busy: that is
+	 * how every stream worked before, with the same limits.
+	 */
+	static final class Transfer {
+		final FtpClient client;
+		/** true: this is the main connection, which stays open when the stream closes */
+		final boolean main;
+
+		Transfer(FtpClient client, boolean main) {
+			this.client = client;
+			this.main = main;
+		}
+	}
+
+	Transfer openTransfer() throws IOException {
+		FtpClient c;
+		synchronized (idleTransfer) {
+			while( (c = idleTransfer.pollFirst()) != null ) {
+				if( c.isConnected() ) {
+					return new Transfer(c, false);
+				}
+				c.close();
+			}
+		}
+		try {
+			return new Transfer(connectNewClient(), false);
+		} catch (IOException | RuntimeException e) {
+			// no further connection: the main one, if no stream is using it
+			logDebug("No separate connection for a stream, using the main one", e);
+			return new Transfer(getFtpClient(), true);
+		}
+	}
+
+	/** @param reusable false when the transfer failed: the connection may be in an unknown state */
+	void closeTransfer(Transfer t, boolean reusable) {
+		if( t.main ) {
+			return;
+		}
+		if( reusable && t.client.isConnected() ) {
+			synchronized (idleTransfer) {
+				if( connectionOpen && idleTransfer.size() < MAX_IDLE_TRANSFER_CONNECTIONS ) {
+					idleTransfer.addFirst(t.client);
+					return;
+				}
+			}
+		}
+		t.client.close();
+	}
+
+	/** How many finished transfer connections are being kept for the next stream. */
+	int idleTransferConnections() {
+		synchronized (idleTransfer) {
+			return idleTransfer.size();
+		}
+	}
+
+	private void closeIdleTransfers() {
+		synchronized (idleTransfer) {
+			FtpClient c;
+			while( (c = idleTransfer.pollFirst()) != null ) {
+				c.close();
+			}
+		}
+	}
+
+	/** @return the client's stream under one of the streams this factory hands out (for tests and diagnostics) */
+	static Object unwrap(Object stream) {
+		if( stream instanceof TransferInputStream ) {
+			return ((TransferInputStream) stream).wrapped();
+		}
+		if( stream instanceof TransferOutputStream ) {
+			return ((TransferOutputStream) stream).wrapped();
+		}
+		return stream;
+	}
+
+	/** An input stream that gives its connection back when it is closed. */
+	static final class TransferInputStream extends java.io.FilterInputStream {
+		private final FtpFileSourceFactory factory;
+		private final Transfer transfer;
+		private boolean closed;
+
+		TransferInputStream(FtpFileSourceFactory factory, Transfer transfer, java.io.InputStream in) {
+			super(in);
+			this.factory = factory;
+			this.transfer = transfer;
+		}
+
+		java.io.InputStream wrapped() {
+			return in;
+		}
+
+		@Override
+		public void close() throws IOException {
+			if( closed ) {
+				return;
+			}
+			closed = true;
+			boolean ok = false;
+			try {
+				super.close();
+				ok = true;
+			} finally {
+				factory.closeTransfer(transfer, ok);
+			}
+		}
+	}
+
+	/** An output stream that gives its connection back when it is closed, then runs whenClosed. */
+	static final class TransferOutputStream extends java.io.FilterOutputStream {
+		private final FtpFileSourceFactory factory;
+		private final Transfer transfer;
+		private final Runnable whenClosed;
+		private boolean closed;
+
+		TransferOutputStream(FtpFileSourceFactory factory, Transfer transfer, java.io.OutputStream out, Runnable whenClosed) {
+			super(out);
+			this.factory = factory;
+			this.transfer = transfer;
+			this.whenClosed = whenClosed;
+		}
+
+		java.io.OutputStream wrapped() {
+			return out;
+		}
+
+		/** FilterOutputStream writes a block a byte at a time; the stream below has a block write. */
+		@Override
+		public void write(byte[] b, int off, int len) throws IOException {
+			out.write(b, off, len);
+		}
+
+		@Override
+		public void close() throws IOException {
+			if( closed ) {
+				return;
+			}
+			closed = true;
+			boolean ok = false;
+			try {
+				out.flush();
+				out.close();
+				ok = true;
+			} finally {
+				factory.closeTransfer(transfer, ok);
+				if( whenClosed != null ) {
+					whenClosed.run();
+				}
+			}
+		}
 	}
 
 
@@ -363,6 +543,11 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		FtpClient c = client;
 		if( c != null ) {
 			c.setTransferBufferSize(value);
+		}
+		synchronized (idleTransfer) {
+			for(FtpClient idle : idleTransfer) {
+				idle.setTransferBufferSize(value);
+			}
 		}
 	}
 
@@ -452,11 +637,14 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	@Override
 	protected boolean connectImpl() {
+		connectionOpen = true;
 		return isConnected();
 	}
 
 	@Override
 	protected void disConnectImpl() {
+		connectionOpen = false;
+		closeIdleTransfers();
 		if( client != null ) {
 			client.close();
 			client = null;

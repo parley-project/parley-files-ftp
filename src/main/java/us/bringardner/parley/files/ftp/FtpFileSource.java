@@ -402,16 +402,32 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	public InputStream getInputStream() throws FileNotFoundException, IOException {
-		InputStream ret = null;
+		return openInput(0, 0);
+	}
+
+	/**
+	 * A stream on a connection of its own (see {@link FtpFileSourceFactory#openTransfer()}), so
+	 * any number can be open at once and commands still work while one is.
+	 *
+	 * @param bufferSize this stream's buffer in bytes, or 0 for the connection's transfer buffer size
+	 */
+	private InputStream openInput(long startingPos, int bufferSize) throws IOException {
 		FtpFile tmp = getTarget();
-		if( tmp != null ) {
-			ret = tmp.getInputStream();
-		} else {
+		if( tmp == null ) {
 			throw new FileNotFoundException(getAbsolutePath()+" does not exist");
 		}
-
-
-		return ret;
+		if( !tmp.isFile() ) {
+			throw new IOException("Can't create stream from directory");
+		}
+		FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
+		FtpFileSourceFactory.Transfer transfer = f.openTransfer();
+		try {
+			InputStream in = transfer.client.getInputStream(getAbsolutePath(), false, startingPos, bufferSize);
+			return new FtpFileSourceFactory.TransferInputStream(f, transfer, in);
+		} catch (IOException | RuntimeException e) {
+			f.closeTransfer(transfer, false);
+			throw e;
+		}
 	}
 
 	public long getMaxVersion() {
@@ -438,22 +454,20 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 		try {
 			String path = getAbsolutePath();
-			FtpClient client = ((FtpFileSourceFactory)getFileSourceFactory()).getFtpClient();
-
-			ret = client.getOutputStream(path, false, append, bufferSize);
-
-			// If it did not exist before in may now.
-
-
-			FileSource p = getParentFile();
-			if( p != null ) {
-				if (p instanceof FtpFileSource) {
-					FtpFileSource pfs = (FtpFileSource) p;
-					pfs.kids_ = null;
-				}
+			FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
+			// on a connection of its own, so other streams and commands still work meanwhile
+			FtpFileSourceFactory.Transfer transfer = f.openTransfer();
+			try {
+				OutputStream out = transfer.client.getOutputStream(path, false, append, bufferSize);
+				// what is known of this file and its directory is out of date once it is written
+				ret = new FtpFileSourceFactory.TransferOutputStream(f, transfer, out, this::forgetWhatIsKnown);
+			} catch (IOException | RuntimeException e) {
+				f.closeTransfer(transfer, false);
+				throw e;
 			}
 
-			target = null;
+			// If it did not exist before in may now.
+			forgetWhatIsKnown();
 
 		} catch (IOException ex) {
 			logError("IOError geting Stream", ex);
@@ -466,6 +480,15 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	public String getParent() {
 		return parent;
+	}
+
+	/** After a write: the cached target and the parent's list are looked up again next time. */
+	private void forgetWhatIsKnown() {
+		FileSource p = parentFile;
+		if( p instanceof FtpFileSource ) {
+			((FtpFileSource) p).kids_ = null;
+		}
+		target = null;
 	}
 
 	public FileSource getParentFile() throws IOException {
@@ -874,11 +897,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	@Override
 	public InputStream getInputStream(long startingPos, StreamOptions options) throws IOException {
-		FtpFile tmp = getTarget();
-		if( tmp == null ) {
-			throw new FileNotFoundException(getAbsolutePath()+" does not exist");
-		}
-		return tmp.getInputStream(false, startingPos, bufferSizeIn(options));
+		return openInput(startingPos, bufferSizeIn(options));
 	}
 
 	@Override
@@ -891,15 +910,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 * @see us.bringardner.parley.files.FileSource#getInputStream(long)
 	 */
 	public InputStream getInputStream(long startingPos) throws IOException {
-		InputStream ret = null;
-		FtpFile tmp = getTarget();
-		if( tmp != null ) {
-			ret = tmp.getInputStream(startingPos);
-		} else {
-			throw new FileNotFoundException(getAbsolutePath()+" does not exist");
-		}
-
-		return ret;
+		return openInput(startingPos, 0);
 	}
 
 	public void dereferenceChilderen() {

@@ -104,4 +104,16 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 	protected FileSource sourceFor(String relative) throws Exception {
 		return factory.createFileSource("/" + tree + "/" + relative);
 	}
+
+	/** The FTP protocol has no links: FtpFileSourceFactory throws UnsupportedOperationException. */
+	@Override
+	protected boolean supportsSymbolicLinks() {
+		return false;
+	}
+
+	/** The FTP protocol has no links: FtpFileSourceFactory throws UnsupportedOperationException. */
+	@Override
+	protected boolean supportsHardLinks() {
+		return false;
+	}
 }
