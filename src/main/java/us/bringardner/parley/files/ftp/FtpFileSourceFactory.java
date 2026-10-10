@@ -593,13 +593,24 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 * return an FileSourceFactory with the same configuration but NOT the same connection.
 	 */
 	public FileSourceFactory createThreadSafeCopy() {
-		FtpFileSourceFactory ret = new FtpFileSourceFactory();
+		FtpFileSourceFactory ret = newCopy();
 		ret.host = host;
 		ret.port = port;
 		ret.passwd = passwd;
 		ret.user = user;
+		ret.account = account;
+		ret.secure = secure;
+		ret.timeout = timeout;
 		ret.bufferSize = bufferSize;
 		return ret;
+	}
+
+	/**
+	 * A new, unconfigured factory of this class for createThreadSafeCopy(); a subclass
+	 * overrides it so its copies are the same kind (an FTPS factory's copy must stay FTPS).
+	 */
+	protected FtpFileSourceFactory newCopy() {
+		return new FtpFileSourceFactory();
 	}
 
 	@Override

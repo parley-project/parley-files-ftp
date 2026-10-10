@@ -10,6 +10,11 @@ public class FtpsFileSourceFactory extends FtpFileSourceFactory {
 	}
 	
 	@Override
+	protected FtpFileSourceFactory newCopy() {
+		return new FtpsFileSourceFactory();
+	}
+
+	@Override
 	public String getTitle() {
 		return super.getTitle()+" Secure";
 	}
