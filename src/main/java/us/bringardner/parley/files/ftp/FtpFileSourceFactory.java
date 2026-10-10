@@ -118,6 +118,21 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	public static final int DEFAULT_PORT = 21;
 	public static final String PROP_SECURE = "secure";
 	public static final String PROP_TIMEOUT = "timeout";
+	/**
+	 * How much to move at a time (bytes), see {@link #setBufferSize(int)}.
+	 * <p>
+	 * This is for programmers: it isn't in {@link #getConnectionSettings()}, so no dialog
+	 * shows it (the forms carry properties they don't describe through unchanged), and
+	 * {@link #getConnectProperties()} only has it when it was set, so saved connections
+	 * keep following the default. The JVM-wide default is the system property
+	 * "ftp.bufferSize", like "ftp.host" and "ftp.port".
+	 */
+	public static final String PROP_BUFFER_SIZE = "bufferSize";
+	/** What the FTP client has always used. */
+	public static final int DEFAULT_BUFFER_SIZE = 1024*65;
+	/** The client doesn't use a smaller buffer than this. */
+	public static final int MIN_BUFFER_SIZE = 8*1024;
+	public static final int MAX_BUFFER_SIZE = 16*1024*1024;
 
 
 
@@ -132,6 +147,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	private  String passwd;
 	private String account;
 	private int timeout = 4000;
+	/** null: the JVM default, else DEFAULT_BUFFER_SIZE. Only a value that was set is saved. */
+	private volatile Integer bufferSize;
 	private boolean secure = false;
 	private FileSource[] roots;
 
@@ -278,6 +295,10 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 					FtpClientWrapper tmp = new FtpClientWrapper(this,getHost(),getPort());
 					tmp.setSecure(secure);
+					Integer buffer = configuredBufferSize();
+					if( buffer != null ) {
+						tmp.setTransferBufferSize(buffer);
+					}
 					// TODO:  Configure setRequestSecure
 					tmp.setRequestSecure(false);
 
@@ -296,6 +317,54 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return client;
 	}
 
+
+	private static int clampBufferSize(long size) {
+		return (int) Math.max(MIN_BUFFER_SIZE, Math.min(MAX_BUFFER_SIZE, size));
+	}
+
+	/** The size that was set, else the system property ftp.bufferSize, else null (the client's default). */
+	private Integer configuredBufferSize() {
+		Integer ret = bufferSize;
+		if( ret == null ) {
+			String v = System.getProperty(FACTORY_ID+"."+PROP_BUFFER_SIZE);
+			if( v != null && !v.trim().isEmpty()) {
+				try {
+					ret = clampBufferSize(Long.parseLong(v.trim()));
+				} catch (NumberFormatException e) {
+					// a bad value uses the default
+				}
+			}
+		}
+		return ret;
+	}
+
+	/**
+	 * The size of the buffers that carry transfer data (and what a copy loop should
+	 * read and write at a time): the one set with {@link #setBufferSize(int)} or
+	 * {@link #PROP_BUFFER_SIZE}, else the system property ftp.bufferSize, else
+	 * {@link #DEFAULT_BUFFER_SIZE}. A connection that is already open reports its own.
+	 */
+	public int getBufferSize() {
+		FtpClient c = client;
+		if( c != null ) {
+			return c.getTransferBufferSize();
+		}
+		Integer ret = configuredBufferSize();
+		return ret == null ? DEFAULT_BUFFER_SIZE : ret;
+	}
+
+	/**
+	 * @param size bytes, kept within {@link #MIN_BUFFER_SIZE} and {@link #MAX_BUFFER_SIZE};
+	 * takes effect for transfers started after this, also on a connection that is open
+	 */
+	public void setBufferSize(int size) {
+		int value = clampBufferSize(size);
+		bufferSize = value;
+		FtpClient c = client;
+		if( c != null ) {
+			c.setTransferBufferSize(value);
+		}
+	}
 
 	public  String getHost() {
 		if( host == null ) {
@@ -413,6 +482,10 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.setProperty(PROP_ACCT, account==null?"":account);
 		ret.setProperty(PROP_SECURE,""+secure);
 		ret.setProperty(PROP_TIMEOUT,""+timeout);
+		Integer buffer = bufferSize;
+		if( buffer != null ) {
+			ret.setProperty(PROP_BUFFER_SIZE, ""+buffer);
+		}
 
 		return ret;
 	}
@@ -488,6 +561,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setAccount(null);
 			setPort(DEFAULT_PORT);
 			secure = false;
+			bufferSize = null;
 		} else {
 			setHost(prop.getProperty(PROP_HOST));
 			int tmp = DEFAULT_PORT;
@@ -501,6 +575,16 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setAccount(prop.getProperty(PROP_ACCT));
 			secure = prop.getProperty(PROP_SECURE, "true").equals("true");
 			timeout = Integer.parseInt(prop.getProperty(PROP_TIMEOUT, ""+timeout));
+			String buffer = prop.getProperty(PROP_BUFFER_SIZE);
+			if( buffer != null && !buffer.trim().isEmpty()) {
+				// No dialog shows this, so a bad value can't be fixed there and must not stop
+				// the connection: say so and keep the size as it is.
+				try {
+					setBufferSize(clampBufferSize(Long.parseLong(buffer.trim())));
+				} catch (NumberFormatException e) {
+					logError("Ignoring "+PROP_BUFFER_SIZE+" '"+buffer+"': not a number");
+				}
+			}
 		}
 	}
 
@@ -514,6 +598,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.port = port;
 		ret.passwd = passwd;
 		ret.user = user;
+		ret.bufferSize = bufferSize;
 		return ret;
 	}
 
