@@ -393,6 +393,19 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		}
 	}
 
+	/**
+	 * This file's path with "." and ".." resolved, and nothing else: it is lexical, and a
+	 * symbolic link is <b>not</b> resolved, where a java.io.File's canonical path and the other
+	 * FileSources' are. FTP has no realpath, so the only way to resolve a link is to ask the server
+	 * about each part of the path, and only a server that says which entries are links (see
+	 * {@link #getLinkedTo()}) could be asked. A caller that needs the file a link leads to asks
+	 * {@link #getLinkedTo()}.
+	 * <p>
+	 * So two names for one file have different canonical paths here, and
+	 * {@link #isChildOfMine(FileSource)} (which compares canonical paths) can't see that a link
+	 * inside a directory leads outside it. The server decides what a link may lead to, not
+	 * this client.
+	 */
 	public String getCanonicalPath() throws IOException {
 		String ret = getName();
 		String p = getParent();

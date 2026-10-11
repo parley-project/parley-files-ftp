@@ -176,6 +176,20 @@ public class FtpLinkedToTest {
 		assertEquals("/ln", chain.getLinkedTo().getAbsolutePath());
 	}
 
+	/**
+	 * Documented in FtpFileSource.getCanonicalPath(): FTP has no realpath, so the canonical path is
+	 * lexical, and a link is its own path (java.io.File's is its target's).
+	 */
+	@Test
+	void theCanonicalPathIsLexicalAndDoesNotFollowALink() throws Exception {
+		assertEquals("/ln", at("/ln").getCanonicalPath());
+		assertEquals("/lnd", at("/lnd").getCanonicalPath());
+		assertEquals("/real.txt", at("/dir/../real.txt").getCanonicalPath(), "'..' is resolved");
+		assertEquals("/real.txt", at("/./real.txt").getCanonicalPath());
+		// what a link leads to is asked with getLinkedTo()
+		assertEquals("/real.txt", at("/ln").getLinkedTo().getCanonicalPath());
+	}
+
 	@Test
 	void aLinkThatPointsAtNothingIsThereButDoesNotExist() throws Exception {
 		FileSource d = at("/dangling");
