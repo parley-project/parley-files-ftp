@@ -125,4 +125,10 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 	protected boolean supportsRandomAccess() {
 		return false;
 	}
+
+	/** MDTM and MLST are read here as whole seconds, and SITE modDate is given in seconds. */
+	@Override
+	protected long modifiedTimeResolutionMillis() {
+		return 1000;
+	}
 }

@@ -452,6 +452,10 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		if( !tmp.isFile() ) {
 			throw new IOException("Can't create stream from directory");
 		}
+		if( startingPos > 0 && startingPos >= length() ) {
+			// nothing is left to read there; servers refuse a REST at or past the end (554)
+			return new java.io.ByteArrayInputStream(new byte[0]);
+		}
 		FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
 		FtpFileSourceFactory.Transfer transfer = f.openTransfer();
 		try {
