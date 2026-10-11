@@ -1115,9 +1115,30 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		return getName().startsWith(".");
 	}
 
+	/**
+	 * A read-only stream that can be moved, as a RandomAccessFile opened with "r". FTP can read
+	 * from an offset (REST) but can't write in the middle of a file, so there is no read-write
+	 * random access, and this is how a file is read at random. A seek costs nothing until the
+	 * next read, which starts a transfer at the new place (a short step forward is read through
+	 * instead). See {@link FtpSeekableInputStream}.
+	 */
 	public ISeekableInputStream getSeekableInputStream() throws IOException {
+		return openSeekable(0);
+	}
 
-		throw new IOException("ISeekableInputStream Not implemented in FTP");
+	@Override
+	public ISeekableInputStream getSeekableInputStream(StreamOptions options) throws IOException {
+		return openSeekable(bufferSizeIn(options));
+	}
+
+	private ISeekableInputStream openSeekable(int bufferSize) throws IOException {
+		if( !exists() ) {
+			throw new FileNotFoundException(getAbsolutePath()+" (No such file or directory)");
+		}
+		if( isDirectory() ) {
+			throw new FileNotFoundException(getAbsolutePath()+" (Is a directory)");
+		}
+		return new FtpSeekableInputStream(this, bufferSize);
 	}
 
 	@Override
