@@ -70,8 +70,16 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 * A change made through any FileSource of the factory since then drops them.
 	 */
 	private volatile long seenChange = -1;
+	/** When target or kids_ was found: they are trusted for the factory's attribute cache time. */
+	private volatile long cachedAt = System.currentTimeMillis();
 
 	private void forgetIfChanged() {
+		// something that was remembered too long ago may have been changed by someone else
+		if( (target != null || kids_ != null)
+				&& System.currentTimeMillis() - cachedAt > factory.getAttributeCacheTtl() ) {
+			target = null;
+			kids_ = null;
+		}
 		long now = factory.getChangeCount();
 		long seen = seenChange;
 		if( seen != now ) {
@@ -572,6 +580,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 				if(target == null ) {
 					String path = getAbsolutePath();
 					target = createFtpFile(path);
+					cachedAt = System.currentTimeMillis();
 				}
 			}
 		}
@@ -1023,6 +1032,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 							}
 							kids_ = tmp;
 						}
+						cachedAt = System.currentTimeMillis();
 					}
 				}
 			}

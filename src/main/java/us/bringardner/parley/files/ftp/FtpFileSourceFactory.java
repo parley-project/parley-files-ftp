@@ -333,6 +333,42 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	// ---- connections for streams
 
+	/** The system property for {@link #getAttributeCacheTtl()}, like "ftp.host" and "ftp.bufferSize". */
+	public static final String SYSTEM_PROPERTY_ATTRIBUTE_CACHE_TTL = FACTORY_ID + ".attributeCacheTtl";
+	/** What a FileSource remembers of a file or a listing is trusted for this long (ms) unless set. */
+	public static final long DEFAULT_ATTRIBUTE_CACHE_TTL = 2000;
+
+	private volatile Long attributeCacheTtl;
+
+	/**
+	 * How long (ms) a FileSource trusts what it was told about a file (its attributes) and a
+	 * directory (its listing) before it asks the server again. A change made through this factory
+	 * is seen at once whatever this is (see {@link #getChangeCount()}); this is how soon a
+	 * change made by someone else is seen. 0 asks every time, like a java.io.File.
+	 * <p>
+	 * The value set with {@link #setAttributeCacheTtl(long)}, else the system property
+	 * ftp.attributeCacheTtl, else {@link #DEFAULT_ATTRIBUTE_CACHE_TTL}.
+	 */
+	public long getAttributeCacheTtl() {
+		Long set = attributeCacheTtl;
+		if( set != null ) {
+			return set;
+		}
+		String v = System.getProperty(SYSTEM_PROPERTY_ATTRIBUTE_CACHE_TTL);
+		if( v != null && !v.trim().isEmpty() ) {
+			try {
+				return Math.max(0, Long.parseLong(v.trim()));
+			} catch (NumberFormatException e) {
+				// a bad value uses the default
+			}
+		}
+		return DEFAULT_ATTRIBUTE_CACHE_TTL;
+	}
+
+	public void setAttributeCacheTtl(long millis) {
+		this.attributeCacheTtl = Math.max(0, millis);
+	}
+
 	/** How many finished transfer connections are kept open for the next stream to use. */
 	public static final int MAX_IDLE_TRANSFER_CONNECTIONS = 4;
 
@@ -790,6 +826,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.secure = secure;
 		ret.timeout = timeout;
 		ret.bufferSize = bufferSize;
+		ret.attributeCacheTtl = attributeCacheTtl;
 		return ret;
 	}
 
