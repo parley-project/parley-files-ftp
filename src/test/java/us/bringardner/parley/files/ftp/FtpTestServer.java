@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.util.Properties;
 
-import us.bringardner.parley.core.BjlLogger;
+import us.bringardner.parley.core.ParleyLogger;
 import us.bringardner.parley.core.ILogger.Level;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
@@ -30,7 +30,7 @@ final class FtpTestServer implements TestServerController {
 	 * and server under test (FileSourceTestSupport stops it after the class).
 	 */
 	static FtpTestServer startAndConnect() throws IOException {
-		System.setProperty("ILogger", BjlLogger.class.getName());
+		System.setProperty("ILogger", ParleyLogger.class.getName());
 		FtpTestServer server = new FtpTestServer();
 		FileSourceTestSupport.startServer(server, TIMEOUT);
 
