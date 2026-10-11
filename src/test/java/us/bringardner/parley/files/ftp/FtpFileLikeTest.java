@@ -116,4 +116,13 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 	protected boolean supportsHardLinks() {
 		return false;
 	}
+
+	/**
+	 * FtpFileSource has no random access or seekable stream: the protocol can read from an offset
+	 * (REST) but can't write in the middle of a file.
+	 */
+	@Override
+	protected boolean supportsRandomAccess() {
+		return false;
+	}
 }
