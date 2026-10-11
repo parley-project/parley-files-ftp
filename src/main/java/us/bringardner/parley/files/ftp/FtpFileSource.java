@@ -65,6 +65,23 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	private String parent;
 
 	private volatile FtpFile target;
+	/**
+	 * The factory's change count when target and kids_ were filled; -1 before it was looked at.
+	 * A change made through any FileSource of the factory since then drops them.
+	 */
+	private volatile long seenChange = -1;
+
+	private void forgetIfChanged() {
+		long now = factory.getChangeCount();
+		long seen = seenChange;
+		if( seen != now ) {
+			seenChange = now;
+			if( seen != -1 ) {
+				target = null;
+				kids_ = null;
+			}
+		}
+	}
 	private volatile FtpFileSource parentFile;
 
 	private volatile FileSource[] kids_;
@@ -328,6 +345,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			ret = tmp.delete();
 			if( ret ) {
 				target = null;
+				factory.noteChange();
 				FileSource p = getParentFile();
 				if( p != null ) {
 					if (p instanceof FtpFileSource) {
@@ -496,6 +514,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			((FtpFileSource) p).kids_ = null;
 		}
 		target = null;
+		factory.noteChange();
 	}
 
 	public FileSource getParentFile() throws IOException {
@@ -547,6 +566,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 * @throws  
 	 */
 	private FtpFile getTarget() throws IOException {
+		forgetIfChanged();
 		if(target == null) {
 			synchronized(this) {
 				if(target == null ) {
@@ -700,6 +720,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			if((ret = client.mkDir(getAbsolutePath()))) {
 				// looked up again next time
 				target = null;
+				factory.noteChange();
 				kids_ = null;
 				FileSource p = getParentFile();
 				if (p instanceof FtpFileSource) {
@@ -936,6 +957,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	public void refresh() throws IOException {
 		target = null;
+		factory.noteChange();
 		getTarget();		
 	}
 
@@ -956,8 +978,10 @@ public class FtpFileSource extends BaseObject implements FileSource {
 				ret = tmp.renameTo(dest.getAbsolutePath());
 				if( ret ) {
 					target = null;
+					factory.noteChange();
 					kids_ = null;
 					((FtpFileSource) dest).target = null;
+					factory.noteChange();
 
 					FileSource p  =getParentFile();
 					if (p instanceof FtpFileSource) {
@@ -984,6 +1008,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	public FileSource[] listFiles(FileSourceProgress progress) throws IOException {
+		forgetIfChanged();
 		if( kids_ == null ) {
 			synchronized (this) {
 				if( kids_ == null ) {

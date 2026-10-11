@@ -236,6 +236,7 @@ public class FtpFile extends FtpClientFile {
 			ret = resp.isPositiveComplet();
 			//  just to make sure client stays in sync with server;
 			permissions = null;
+			factory.noteChange();
 		}
 		
 		return ret;
@@ -244,4 +245,51 @@ public class FtpFile extends FtpClientFile {
 
 
 
+
+	// what changes the file tells the factory, so every FileSource of it forgets what it knew
+
+	@Override
+	public boolean delete() throws IOException {
+		try {
+			return super.delete();
+		} finally {
+			factory.noteChange();
+		}
+	}
+
+	@Override
+	public boolean mkdir() throws IOException {
+		try {
+			return super.mkdir();
+		} finally {
+			factory.noteChange();
+		}
+	}
+
+	@Override
+	public boolean mkdirs() throws IOException {
+		try {
+			return super.mkdirs();
+		} finally {
+			factory.noteChange();
+		}
+	}
+
+	@Override
+	public boolean renameTo(String newAbsolutePath) throws IOException {
+		try {
+			return super.renameTo(newAbsolutePath);
+		} finally {
+			factory.noteChange();
+		}
+	}
+
+	@Override
+	public boolean setLastModified(long lastModifiedTime) {
+		try {
+			return super.setLastModified(lastModifiedTime);
+		} finally {
+			factory.noteChange();
+		}
+	}
 }
