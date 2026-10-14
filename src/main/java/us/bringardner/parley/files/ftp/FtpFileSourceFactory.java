@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -146,8 +147,18 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	private  String host;
 	private  int port = -1;
 	private  String user;
+	/** As set: a password or a reference to one (@keychain:...); see {@link #secret(String, String)}. */
 	private  String passwd;
+	/** As set: an account or a reference to one. */
 	private String account;
+	/**
+	 * The password and account resolved for this session's logins. FTP has no session token,
+	 * so every new control or transfer connection logs in again and needs them; they are
+	 * zeroed on disconnect and whenever the settings change.
+	 */
+	private char[] loginPasswd;
+	private char[] loginAccount;
+	private boolean loginResolved;
 	private int timeout = 4000;
 	/** null: the JVM default, else DEFAULT_BUFFER_SIZE. Only a value that was set is saved. */
 	private volatile Integer bufferSize;
@@ -216,6 +227,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	public void setAccount(String account) {
 		this.account = account;
+		clearLogin();
 	}
 
 	protected FtpFile [] listFiles(String dirPath) throws IOException {
@@ -303,7 +315,14 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		tmp.setCmdTimeout(timeout);
 		tmp.setTxferTimeout(timeout);
 
-		if( !tmp.connect(getUser(),getPasswd(),getAccount())) {
+		String pw;
+		String acct;
+		synchronized (this) {
+			ensureLogin();
+			pw = loginPasswd == null ? null : new String(loginPasswd);
+			acct = loginAccount == null ? null : new String(loginAccount);
+		}
+		if( !tmp.connect(getUser(),pw,acct)) {
 			ClientFtpResponse res = tmp.getLastResponse();
 			String reply = res == null ? "No reply availible": res.getResponseText();
 			String msg = "Can't log on to "+getHost()+":"+getPort()+" user= "+getUser()+" reply="+reply;
@@ -617,6 +636,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	public  void setPasswd(String passwd) {
 		this.passwd = passwd;
+		clearLogin();
 	}
 
 	public  int getPort() {
@@ -672,14 +692,46 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	@Override
-	protected boolean connectImpl() {
+	protected boolean connectImpl() throws IOException {
+		synchronized (this) {
+			// resolved here, inside connect(), so a reference that can't be resolved fails the
+			// connect with its own message, and a rejected answer (a prompt) is asked again
+			clearLogin();
+			ensureLogin();
+		}
 		connectionOpen = true;
 		return isConnected();
+	}
+
+	/** Resolves the password and account (references are looked up) if not done yet. */
+	private synchronized void ensureLogin() throws IOException {
+		if( loginResolved ) {
+			return;
+		}
+		String pw = getPasswd();
+		String acct = getAccount();
+		loginPasswd = pw == null ? null : secret(PROP_PSWD, pw);
+		loginAccount = acct == null ? null : secret(PROP_ACCT, acct);
+		loginResolved = true;
+	}
+
+	/** Zeroes and forgets the resolved password and account. */
+	private synchronized void clearLogin() {
+		if( loginPasswd != null ) {
+			Arrays.fill(loginPasswd, '\0');
+			loginPasswd = null;
+		}
+		if( loginAccount != null ) {
+			Arrays.fill(loginAccount, '\0');
+			loginAccount = null;
+		}
+		loginResolved = false;
 	}
 
 	@Override
 	protected void disConnectImpl() {
 		connectionOpen = false;
+		clearLogin();
 		closeIdleTransfers();
 		if( client != null ) {
 			client.close();
