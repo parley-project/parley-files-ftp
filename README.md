@@ -1,8 +1,8 @@
 # parley-files-ftp
 
-A [parley-files](https://github.com/tony-bringardner/parley-files) `FileSource` implementation for
+A [parley-files](https://github.com/parley-project/parley-files) `FileSource` implementation for
 FTP and FTPS servers, part of **Parley**, a family of Java libraries for implementing internet
-protocols. It uses the [parley-ftp](https://github.com/tony-bringardner/parley-ftp) client.
+protocols. It uses the [parley-ftp](https://github.com/parley-project/parley-ftp) client.
 
 Put it on the class path and `FileSourceFactory` finds it through `ServiceLoader`
 (`FtpFileSourceFactory` and `FtpsFileSourceFactory`); application code keeps working with
@@ -38,7 +38,7 @@ When a server does say:
   `lastModified()`. One that leads nowhere is there but doesn't exist; a loop of links answers no.
 - **What a write to a link does is the server's decision**, because FTP has no idea of a link (parley-ftp's
   server, for one, replaces the link with a regular file, so a client never changes what it leads to; see
-  its [Links](https://github.com/tony-bringardner/parley-ftp#links)). Unlike the other file systems here,
+  its [Links](https://github.com/parley-project/parley-ftp#links)). Unlike the other file systems here,
   the `FileSource` can't tell you which.
 - `getCanonicalPath()` is **lexical**: `.` and `..` are resolved and a link is not (FTP has no realpath).
   So a link and the file it leads to have different canonical paths here, and `isChildOfMine()` can't see
