@@ -50,7 +50,15 @@ public class FtpExternalChangeTest {
 		Files.createDirectories(root);
 		server = new FtpServer();
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
-		server.setPort(Integer.parseInt(System.getProperty("FtpExternalChangePort", "8032")));
+		// A free port for each test: the server is restarted before every one, and the last one's
+		// port may not be released yet (BindException: Address already in use)
+		String port = System.getProperty("FtpExternalChangePort");
+		if( port == null ) {
+			try (java.net.ServerSocket s = new java.net.ServerSocket(0)) {
+				port = "" + s.getLocalPort();
+			}
+		}
+		server.setPort(Integer.parseInt(port));
 		server.getLogger().setLevel(Level.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
