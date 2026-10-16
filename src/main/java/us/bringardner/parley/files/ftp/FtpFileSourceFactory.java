@@ -911,8 +911,11 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 
-	FileSourceUser principle = new FileSourceUser() {
+	private final FileSourceUser principal = new FileSourceUser() {
 
+		private static final long serialVersionUID = 1L;
+
+		@Override
 		public String getName() {
 			if( isConnected()) {
 				return FtpFileSourceFactory.this.user;
@@ -924,7 +927,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	@Override
 	public FileSourceUser whoAmI() {
-		return principle;
+		return principal;
 	}
 
 
