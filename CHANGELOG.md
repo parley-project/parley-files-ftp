@@ -1,6 +1,6 @@
 # Changelog
 
-## parley-files-ftp 1.0.0 (unreleased)
+## parley-files-ftp 1.0.0 (2026-10-16)
 
 BjlFileSystemFtp (`bringardner:bjl_file_system_ftp` 1.0.0-SNAPSHOT) is now **parley-files-ftp**, part
 of the Parley library family. The code is the same; only names changed.

@@ -881,20 +881,6 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	/**
-	 * Put a path name into a consistent format
-	 * @param path
-	 * @return New path using the correct seperator char.
-	 * @see FtpClient.PATH_SEPERATOR_CHAR
-	 */
-	private String setPathSeperator(String path) {
-		char badSep = '\\';
-		if( FtpClient.SEPERATOR_CHAR== badSep ) {
-			badSep = '/';
-		}
-		return path.replace(badSep,FtpClient.SEPERATOR_CHAR);
-	}
-
-	/**
 	 * Private method to set the name field.  The parent is determined and set.
 	 * @param name
 	 */
