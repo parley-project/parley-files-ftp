@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -30,7 +31,7 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		root = Paths.get("target", "FtpFileLikeRoot").toAbsolutePath();
+		root = Paths.get(FileSourceTestSupport.scratchDir("FtpFileLikeRoot"));
 		// start empty: a tree left by an earlier run would be taken for part of this one
 		deleteAll(root.toFile());
 		Files.createDirectories(root);

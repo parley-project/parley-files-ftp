@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,7 +38,7 @@ public class FtpSeekableInputStreamTest {
 
 	@BeforeEach
 	void start() throws Exception {
-		Path root = Paths.get("target", "FtpSeekableRoot").toAbsolutePath();
+		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpSeekableRoot"));
 		if( Files.exists(root) ) {
 			try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
 				walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
