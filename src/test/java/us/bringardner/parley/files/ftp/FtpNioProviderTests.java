@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import java.io.IOException;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -11,9 +12,9 @@ public class FtpNioProviderTests extends AbstractNioProviderTests {
 
 	@BeforeAll
 	public static void setUpBeforeAll() throws IOException {
-		localTestFileDirPath = "TestFiles";
-		localCacheDirPath = "target/NioCacheFiles";
-		remoteTestFileDirPath = "TestFiles";
+		localTestFileDirPath = FileSourceTestSupport.testFilesDir(FtpNioProviderTests.class);
+		localCacheDirPath = FileSourceTestSupport.scratchDir("NioCacheFiles");
+		remoteTestFileDirPath = "/TestFiles";
 		FtpTestServer.startAndConnect();
 	}
 

@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -143,7 +144,7 @@ public class FtpBufferSizeTest {
 	/** A stream opened with StreamOptions gets its own buffer; without them it gets the factory's. */
 	@Test
 	void streamsTakeTheirOwnBufferSize() throws Exception {
-		Path root = Paths.get("target", "FtpStreamOptionsRoot").toAbsolutePath();
+		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpStreamOptionsRoot"));
 		Files.createDirectories(root);
 		FtpServer server = new FtpServer();
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
@@ -221,7 +222,7 @@ public class FtpBufferSizeTest {
 	/** The value reaches the client of a real connection, and transfers still come out right. */
 	@Test
 	void reachesTheClientAndTransfersStayCorrect() throws Exception {
-		Path root = Paths.get("target", "FtpBufferRoot").toAbsolutePath();
+		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpBufferRoot"));
 		Files.createDirectories(root);
 		FtpServer server = new FtpServer();
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));

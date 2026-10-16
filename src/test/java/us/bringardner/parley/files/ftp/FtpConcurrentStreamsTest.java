@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +36,7 @@ public class FtpConcurrentStreamsTest {
 
 	@BeforeEach
 	void start() throws Exception {
-		Path root = Paths.get("target", "FtpConcurrentStreamsRoot").toAbsolutePath();
+		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpConcurrentStreamsRoot"));
 		Files.createDirectories(root);
 		server = new FtpServer();
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));

@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,7 +41,7 @@ public class FtpExternalChangeTest {
 
 	@BeforeEach
 	void start() throws Exception {
-		Path root = Paths.get("target", "FtpExternalChangeRoot").toAbsolutePath();
+		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpExternalChangeRoot"));
 		// a root that is empty: an earlier run's files would still be there
 		if( Files.exists(root) ) {
 			try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
