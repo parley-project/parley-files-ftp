@@ -901,18 +901,21 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	@Override
-	public char getPathSeperatorChar() {
+	public char getPathSeparatorChar() {
 		return ':';
 	}
 
 	@Override
-	public char getSeperatorChar() {
+	public char getSeparatorChar() {
 		return '/';
 	}
 
 
-	FileSourceUser principle = new FileSourceUser() {
+	private final FileSourceUser principal = new FileSourceUser() {
 
+		private static final long serialVersionUID = 1L;
+
+		@Override
 		public String getName() {
 			if( isConnected()) {
 				return FtpFileSourceFactory.this.user;
@@ -924,7 +927,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	@Override
 	public FileSourceUser whoAmI() {
-		return principle;
+		return principal;
 	}
 
 

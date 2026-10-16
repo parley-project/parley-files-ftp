@@ -56,7 +56,7 @@ final class FtpTestServer implements TestServerController {
 
 	@Override
 	public void start() throws IOException {
-		root = FileSourceFactory.getDefaultFactory().createFileSource("target/FtpRoot");
+		root = FileSourceFactory.getDefaultFactory().createFileSource(FileSourceTestSupport.scratchDir("FtpRoot"));
 		if( !root.exists() ) {
 			root.mkdirs();
 		}
