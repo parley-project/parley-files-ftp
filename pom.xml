@@ -37,16 +37,6 @@
 	</dependencyManagement>
 
 	<build>
-		<!-- Eclipse uses resources/ as a source folder; Maven has to be told, or the
-		     FileSourceFactory service registration (and any other files there) is left out of the jar -->
-		<resources>
-			<resource>
-				<directory>resources</directory>
-			</resource>
-			<resource>
-				<directory>src/main/resources</directory>
-			</resource>
-		</resources>
 		<plugins>
 			<!-- Attaches the -sources.jar. The version comes from parley-parent; package (not deploy)
 			     so the source jar is attached BEFORE the deploy plugin runs. -->

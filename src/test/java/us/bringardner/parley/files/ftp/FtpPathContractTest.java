@@ -1,5 +1,6 @@
 package us.bringardner.parley.files.ftp;
 
+import us.bringardner.parley.files.test.FileSourceTestSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,7 +39,7 @@ public class FtpPathContractTest {
 
 	@BeforeAll
 	public static void setUp() throws Exception {
-		serverRoot = Paths.get("target", "FtpContractRoot").toAbsolutePath();
+		serverRoot = Paths.get(FileSourceTestSupport.scratchDir("FtpContractRoot"));
 		deleteAll(serverRoot);
 		Files.createDirectories(serverRoot.resolve("base/root/sub"));
 		Files.createDirectories(serverRoot.resolve("base/rootX"));
