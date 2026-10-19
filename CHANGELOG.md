@@ -9,6 +9,12 @@ Needs parley-files 1.1.0.
 - File locks (`lock()`, `tryLock()`, see parley-files). FTP has no locks of its own, so they reach this
   JVM only (`getLockScope()` is `PROCESS`). `FtpLockTest` runs parley-files' lock contract over FTP.
 
+### Changed (no code change needed)
+
+- `createNewFile()` appends zero bytes (APPE) instead of storing them (STOR), so a file another client
+  created between the check and the store is no longer emptied. It still isn't atomic, which FTP can't
+  do; FileSource's contract now says it must be, and the README says why FTP is the exception.
+
 ## parley-files-ftp 1.0.0 (2026-10-16)
 
 BjlFileSystemFtp (`bringardner:bjl_file_system_ftp` 1.0.0-SNAPSHOT) is now **parley-files-ftp**, part

@@ -322,9 +322,13 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	/**
 	 * As java.io.File: true if the file was created, false if it was already there, and an
-	 * IOException if the directory it goes in isn't. FTP has no command that creates an empty
-	 * file, so this stores zero bytes. (Unlike File's it isn't atomic: another client could
-	 * create the file between the check and the store.)
+	 * IOException if the directory it goes in isn't.
+	 * <p>
+	 * <b>Not atomic, against FileSource's contract.</b> FTP has no command that creates a file only if
+	 * it is missing, so this checks first and then appends zero bytes (APPE, which creates the file
+	 * but, unlike STOR, never empties one another client made meanwhile). Two clients racing for one
+	 * path can both be told true. Code that needs an atomic create over FTP uses {@link #mkdir()},
+	 * which is atomic (MKD fails if the directory exists).
 	 */
 	public boolean createNewFile() throws IOException {
 		if( exists() ) {
@@ -334,7 +338,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		if( parent == null || !parent.isDirectory() ) {
 			throw new IOException("No such file or directory: "+getParent());
 		}
-		try( OutputStream out = openOutput(false, 0) ) {
+		try( OutputStream out = openOutput(true, 0) ) {
 			// nothing to write: opening and closing the store creates the file
 		}
 		return exists();
