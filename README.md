@@ -52,6 +52,7 @@ In short, for `FtpFileSourceFactory` and `FtpsFileSourceFactory`:
 |---|---|
 | Locks | `PROCESS`: this JVM only (FTP has no locks). Range locks work within the JVM. |
 | Atomic create | `createNewFile()` **is not atomic**; `mkdir()` is. |
+| Capabilities (`getCapabilities()`) | `PROCESS` locks; create **not** atomic, mkdir atomic; replace (`renameTo(dest, true)`) not atomic: delete, then rename; sync only sends; operations in one order |
 | FileChannel | no random access: read, or write a new or emptied file, or append; not read and write |
 | `map()` | `READ_ONLY` maps a local copy of the region; `PRIVATE` and `READ_WRITE` can't (they need a read-write channel) |
 | `force()` | only sends the data; it can't be read back before the channel is closed |
