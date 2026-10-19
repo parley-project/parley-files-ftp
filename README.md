@@ -56,8 +56,9 @@ command that creates a file only if it is missing, so two clients racing for one
 if the directory exists); code that needs an atomic create over FTP uses it.
 
 `FileChannel.force()` over FTP only sends the data: FTP has no way to ask the server to sync, and a server stores
-an upload when it ends, so what was written can't be read back before the channel is closed. `map()` isn't
-supported (only local files can be mapped).
+an upload when it ends, so what was written can't be read back before the channel is closed. `map()` in
+`READ_ONLY` mode maps a local copy of the region (see parley-files); `PRIVATE` and `READ_WRITE` need a channel open
+for reading and writing, which needs random access, which FTP doesn't have.
 
 ## Tests
 
