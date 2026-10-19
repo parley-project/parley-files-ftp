@@ -50,6 +50,11 @@ FTP has no file locks, so `lock()` and `tryLock()` (see parley-files) keep the d
 (`getLockScope()` is `PROCESS`). They keep threads and code in one process apart, not other clients of the
 server. Applications that need more build it on top (parley-net's locking).
 
+**`createNewFile()` is not atomic over FTP**, although FileSource's contract says it must be: the protocol has no
+command that creates a file only if it is missing, so two clients racing for one path can both be told `true`.
+(It appends zero bytes, so it never empties a file another client made meanwhile.) `mkdir()` is atomic (MKD fails
+if the directory exists); code that needs an atomic create over FTP uses it.
+
 ## Tests
 
 The tests start an FTP server from parley-ftp on port 8021 (`-DFtpPort=...` to change it) and run
