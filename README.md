@@ -46,6 +46,17 @@ When a server does say:
 
 ## Locking
 
+In short, for `FtpFileSourceFactory` and `FtpsFileSourceFactory`:
+
+| | |
+|---|---|
+| Locks | `PROCESS`: this JVM only (FTP has no locks). Range locks work within the JVM. |
+| Atomic create | `createNewFile()` **is not atomic**; `mkdir()` is. |
+| FileChannel | no random access: read, or write a new or emptied file, or append; not read and write |
+| `map()` | `READ_ONLY` maps a local copy of the region; `PRIVATE` and `READ_WRITE` can't (they need a read-write channel) |
+| `force()` | only sends the data; it can't be read back before the channel is closed |
+
+
 FTP has no file locks, so `lock()` and `tryLock()` (see parley-files) keep the default: locks within this JVM
 (`getLockScope()` is `PROCESS`). They keep threads and code in one process apart, not other clients of the
 server. Applications that need more build it on top (parley-net's locking).
