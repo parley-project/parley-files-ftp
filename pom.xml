@@ -13,7 +13,7 @@
 	</parent>
 
 	<artifactId>parley-files-ftp</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.0-SNAPSHOT</version>
 	<name>Parley Files FTP</name>
 	<description>A parley-files FileSource implementation for FTP and FTPS servers, using the parley-ftp
 		client. Found at runtime through ServiceLoader. Formerly bringardner:bjl_file_system_ftp.</description>
@@ -76,13 +76,13 @@
 		<dependency>
 			<groupId>us.bringardner.parley</groupId>
 			<artifactId>parley-files</artifactId>
-			<version>1.0.0</version>
+			<version>1.1.0-SNAPSHOT</version>
 		</dependency>
 		<!-- The shared FileSource test suite -->
 		<dependency>
 			<groupId>us.bringardner.parley</groupId>
 			<artifactId>parley-files</artifactId>
-			<version>1.0.0</version>
+			<version>1.1.0-SNAPSHOT</version>
 			<type>test-jar</type>
 			<scope>test</scope>
 		</dependency>

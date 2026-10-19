@@ -1,5 +1,14 @@
 # Changelog
 
+## parley-files-ftp 1.1.0 (unreleased)
+
+Needs parley-files 1.1.0.
+
+### Added
+
+- File locks (`lock()`, `tryLock()`, see parley-files). FTP has no locks of its own, so they reach this
+  JVM only (`getLockScope()` is `PROCESS`). `FtpLockTest` runs parley-files' lock contract over FTP.
+
 ## parley-files-ftp 1.0.0 (2026-10-16)
 
 BjlFileSystemFtp (`bringardner:bjl_file_system_ftp` 1.0.0-SNAPSHOT) is now **parley-files-ftp**, part
