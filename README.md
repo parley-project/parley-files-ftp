@@ -44,6 +44,12 @@ When a server does say:
   So a link and the file it leads to have different canonical paths here, and `isChildOfMine()` can't see
   that a link leads outside a directory. Ask `getLinkedTo()` for the target.
 
+## Locking
+
+FTP has no file locks, so `lock()` and `tryLock()` (see parley-files) keep the default: locks within this JVM
+(`getLockScope()` is `PROCESS`). They keep threads and code in one process apart, not other clients of the
+server. Applications that need more build it on top (parley-net's locking).
+
 ## Tests
 
 The tests start an FTP server from parley-ftp on port 8021 (`-DFtpPort=...` to change it) and run
