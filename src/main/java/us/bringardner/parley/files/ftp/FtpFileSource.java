@@ -331,6 +331,22 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 * which is atomic (MKD fails if the directory exists).
 	 */
 	public boolean createNewFile() throws IOException {
+		return createNewFileNotAtomic();
+	}
+
+	/**
+	 * FTP: locks reach this JVM only; createNewFile is <b>not</b> atomic (see
+	 * {@link #createNewFile()}), mkdir is (MKD); replace isn't (delete, then rename); sync only
+	 * sends the data; one server, so operations are applied in one order.
+	 * @since 1.1.0
+	 */
+	@Override
+	public us.bringardner.parley.files.FileSourceCapabilities getCapabilities() {
+		return us.bringardner.parley.files.FileSourceCapabilities.defaults(getLockScope()).withAtomicCreateNewFile(false)
+				.withOrderedOperations(true);
+	}
+
+	private boolean createNewFileNotAtomic() throws IOException {
 		if( exists() ) {
 			return false;
 		}

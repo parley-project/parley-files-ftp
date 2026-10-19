@@ -127,12 +127,6 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		return false;
 	}
 
-	/** FTP has no exclusive create: createNewFile() checks, then appends (see FtpFileSource). */
-	@Override
-	protected boolean createNewFileIsAtomic() {
-		return false;
-	}
-
 	/** MDTM and MLST are read here as whole seconds, and SITE modDate is given in seconds. */
 	@Override
 	protected long modifiedTimeResolutionMillis() {
