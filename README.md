@@ -55,6 +55,10 @@ command that creates a file only if it is missing, so two clients racing for one
 (It appends zero bytes, so it never empties a file another client made meanwhile.) `mkdir()` is atomic (MKD fails
 if the directory exists); code that needs an atomic create over FTP uses it.
 
+`FileChannel.force()` over FTP only sends the data: FTP has no way to ask the server to sync, and a server stores
+an upload when it ends, so what was written can't be read back before the channel is closed. `map()` isn't
+supported (only local files can be mapped).
+
 ## Tests
 
 The tests start an FTP server from parley-ftp on port 8021 (`-DFtpPort=...` to change it) and run
