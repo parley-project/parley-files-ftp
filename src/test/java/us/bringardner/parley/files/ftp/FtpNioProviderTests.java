@@ -31,4 +31,10 @@ public class FtpNioProviderTests extends AbstractNioProviderTests {
 	public void testCreateDir() throws Exception {
 		super.testCreateDir();
 	}
+
+	/** FTP stores a file when its upload ends: force() can only send the data, not make it readable. */
+	@Override
+	protected boolean forcedWritesAreVisibleBeforeClose() {
+		return false;
+	}
 }
