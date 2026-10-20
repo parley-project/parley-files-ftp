@@ -53,7 +53,7 @@ import us.bringardner.parley.ftp.client.FtpClient;
  * <ul>
  * <li><b>Locks:</b> {@code PROCESS} scope: this JVM only. FTP has no file locks, so other clients of the server aren't kept out. Range locks work within the JVM.</li>
  * <li><b>Atomic create:</b> <b>{@code createNewFile()} is not atomic</b>, against FileSource's contract: FTP has no command that creates a file only if it is missing, so two clients racing for one path can both be told true (it appends zero bytes, so it never empties a file another client made). {@code mkdir()} is atomic (MKD fails if the directory exists); use it where an atomic create is needed.</li>
- * <li><b>FileChannel:</b> a channel for reading and writing uses random access ({@link FtpRandomAccessIoController}: REST and RETR to read a chunk, REST and STOR to write one), which needs a server that stores in place at a REST offset (vsftpd; ProFTPD with AllowStoreRestart; parley's FtpServer with setStoreAtOffset(true)). With any server a channel can be opened for reading, or for writing a new or emptied file ({@code CREATE}, {@code TRUNCATE_EXISTING}) or at its end ({@code APPEND}).</li>
+ * <li><b>FileChannel:</b> a channel for reading and writing uses random access ({@link FtpRandomAccessIoController}: REST and RETR to read a chunk, REST and STOR to write one in the middle), which writes in the middle of a file only when {@link #setStoreAtOffset(boolean)} says the server stores in place at a REST offset. With any server a channel can be opened for reading, or for writing a new or emptied file ({@code CREATE}, {@code TRUNCATE_EXISTING}) or at its end ({@code APPEND}).</li>
  * <li><b>map():</b> {@code READ_ONLY} maps a local copy of the region, read when it is mapped. {@code PRIVATE} and {@code READ_WRITE} need a channel open for reading and writing (see FileChannel).</li>
  * <li><b>force():</b> only sends the data: FTP can't ask the server to sync, and a server stores an upload when it ends, so what was written can't be read back before the channel is closed.</li>
  * </ul>
@@ -142,6 +142,13 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 * "ftp.bufferSize", like "ftp.host" and "ftp.port".
 	 */
 	public static final String PROP_BUFFER_SIZE = "bufferSize";
+	/**
+	 * "true" when the server stores in place at a REST offset (REST n then STOR writes from n and
+	 * leaves the rest of the file), so a random access stream may write in the middle of a file; see
+	 * {@link #setStoreAtOffset(boolean)}. Default false.
+	 * @since 1.1.0
+	 */
+	public static final String PROP_STORE_AT_OFFSET = "storeAtOffset";
 	/** What the FTP client has always used. */
 	public static final int DEFAULT_BUFFER_SIZE = 1024*65;
 	/** The client doesn't use a smaller buffer than this. */
@@ -176,6 +183,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	/** null: the JVM default, else DEFAULT_BUFFER_SIZE. Only a value that was set is saved. */
 	private volatile Integer bufferSize;
 	private boolean secure = false;
+	/** See {@link #setStoreAtOffset(boolean)}. */
+	private volatile boolean storeAtOffset = false;
 	private FileSource[] roots;
 
 	public FtpFileSourceFactory () {
@@ -196,6 +205,29 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	public void setSecure(boolean secure) {
 		this.secure = secure;
+	}
+
+	/** @return true if this server is said to store in place at a REST offset (default false) */
+	public boolean isStoreAtOffset() {
+		return storeAtOffset;
+	}
+
+	/**
+	 * Says whether the server stores in place at a REST offset: REST n then STOR writes the data
+	 * from n and leaves the rest of the file as it was. The FTP standards don't say what a server
+	 * does there, and servers differ: some refuse, some replace the file with the new data, some add
+	 * it to the end. A random access stream writes a chunk in the middle of a file only when this is
+	 * true; otherwise saving such a chunk fails before anything is sent. Reading, and writing at
+	 * the end of a file, work either way. Set it only for a server known to do this (parley-ftp's
+	 * FtpServer with setStoreAtOffset(true); ProFTPD and vsftpd are reported to, check yours).
+	 * After each such write the file's size is checked, so a server that does something else is
+	 * reported, but the file is damaged by then.
+	 *
+	 * @see #PROP_STORE_AT_OFFSET
+	 * @since 1.1.0
+	 */
+	public void setStoreAtOffset(boolean storeAtOffset) {
+		this.storeAtOffset = storeAtOffset;
 	}
 
 	public boolean isSecure() {
@@ -771,6 +803,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.setProperty(PROP_ACCT, account==null?"":account);
 		ret.setProperty(PROP_SECURE,""+secure);
 		ret.setProperty(PROP_TIMEOUT,""+timeout);
+		ret.setProperty(PROP_STORE_AT_OFFSET,""+storeAtOffset);
 		Integer buffer = bufferSize;
 		if( buffer != null ) {
 			ret.setProperty(PROP_BUFFER_SIZE, ""+buffer);
@@ -804,7 +837,9 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 				ConnectionSetting.bool(PROP_SECURE, "Use TLS (FTPS)"),
 				ConnectionSetting.secret(PROP_ACCT, "Account").asAdvanced()
 					.withDescription("RFC 959 ACCT; only some servers use it"),
-				ConnectionSetting.integer(PROP_TIMEOUT, "Timeout (ms)", 0L, null).asAdvanced().withDefault("4000"));
+				ConnectionSetting.integer(PROP_TIMEOUT, "Timeout (ms)", 0L, null).asAdvanced().withDefault("4000"),
+				ConnectionSetting.bool(PROP_STORE_AT_OFFSET, "Server stores at a REST offset").asAdvanced()
+					.withDescription("Lets random access write in the middle of a file (REST then STOR). Only for a server known to write in place there."));
 	}
 
 
@@ -850,6 +885,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setAccount(null);
 			setPort(DEFAULT_PORT);
 			secure = false;
+			storeAtOffset = false;
 			bufferSize = null;
 		} else {
 			setHost(prop.getProperty(PROP_HOST));
@@ -864,6 +900,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setAccount(prop.getProperty(PROP_ACCT));
 			secure = prop.getProperty(PROP_SECURE, "true").equals("true");
 			timeout = Integer.parseInt(prop.getProperty(PROP_TIMEOUT, ""+timeout));
+			storeAtOffset = "true".equalsIgnoreCase(prop.getProperty(PROP_STORE_AT_OFFSET, "false").trim());
 			String buffer = prop.getProperty(PROP_BUFFER_SIZE);
 			if( buffer != null && !buffer.trim().isEmpty()) {
 				// No dialog shows this, so a bad value can't be fixed there and must not stop
@@ -890,6 +927,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.account = account;
 		ret.secure = secure;
 		ret.timeout = timeout;
+		ret.storeAtOffset = storeAtOffset;
 		ret.bufferSize = bufferSize;
 		ret.attributeCacheTtl = attributeCacheTtl;
 		return ret;

@@ -53,7 +53,7 @@ In short, for `FtpFileSourceFactory` and `FtpsFileSourceFactory`:
 | Locks | `PROCESS`: this JVM only (FTP has no locks). Range locks work within the JVM. |
 | Atomic create | `createNewFile()` **is not atomic**; `mkdir()` is. |
 | Capabilities (`getCapabilities()`) | `PROCESS` locks; create **not** atomic, mkdir atomic; replace (`renameTo(dest, true)`) not atomic: delete, then rename; sync only sends; operations in one order |
-| FileChannel | read and write through random access (see [Random access](#random-access)), which needs a server that stores at an offset; with any server: read, or write a new or emptied file, or append |
+| FileChannel | read and write through random access (see [Random access](#random-access)); writing in the middle needs `storeAtOffset`; with any server: read, or write a new or emptied file, or append |
 | `map()` | `READ_ONLY` maps a local copy of the region; `PRIVATE` and `READ_WRITE` need a read-write channel (as FileChannel) |
 | `force()` | only sends the data; it can't be read back before the channel is closed |
 
@@ -81,16 +81,34 @@ position:
 | | How |
 |---|---|
 | Read a chunk | `REST start`, `RETR`; the transfer is dropped once the chunk has arrived |
-| Write a chunk in the middle | `REST start`, `STOR`: the server writes from `start` in place and leaves the rest of the file |
+| Write a chunk in the middle | `REST start`, `STOR`: the server writes from `start` in place and leaves the rest of the file. **Only with `storeAtOffset`** (below) |
 | Write a chunk at the end | `APPE` (with zeros for any gap) |
 | Write chunk 0 of a longer file | `REST 0` is no restart (a `STOR` would replace the file), so the rest of the file is copied to a local temporary file and stored again after the chunk |
 | `setLength()` longer | `APPE` of zeros |
 | `setLength()` shorter | FTP can't truncate: the part that stays is copied to a local temporary file and stored again |
 
-**Writing in the middle needs a server that stores at a `REST` offset in place**: vsftpd does; ProFTPD with
-`AllowStoreRestart on`; parley-ftp's `FtpServer` with `setStoreAtOffset(true)` (`JFtp.storeAtOffset`). Many servers
-accept `REST` before `STOR` only to resume an upload at the end of the file; against those, saving a chunk in the middle
-fails (`IOException`, saying so) and nothing is written. Reading, and writing at the end, work with any server.
+**Writing in the middle is off unless the connection says the server stores in place at a `REST` offset**: the
+`storeAtOffset` connection property (`PROP_STORE_AT_OFFSET`, `setStoreAtOffset(true)`; "Server stores at a REST
+offset" among the advanced connection settings). The FTP standards don't say what a server does with `REST` then `STOR`,
+and servers differ:
+
+| Server | `REST n` then `STOR` |
+|---|---|
+| parley-ftp `FtpServer` | Refused unless `setStoreAtOffset(true)` (`JFtp.storeAtOffset`); then writes in place |
+| ProFTPD | `AllowStoreRestart`; its manual warns it lets clients "corrupt or increase the size of previously stored files", but doesn't say how it writes. Not verified here |
+| vsftpd | Believed to write in place. Not verified here |
+| IIS | Reported to keep only the new data (the file is replaced) |
+| FileZilla Server | Reported to add the data to the end; it also forgets `REST` if `PASV` comes between (this client sends `REST` straight before `STOR`) |
+
+Check yours before setting `storeAtOffset`. Without it, saving a chunk in the middle fails before anything is sent
+(`IOException`, saying so). With it:
+
+- a server that refuses the `REST` or the `STOR` leaves the file as it was, and the save fails;
+- after every write the file's size is checked against what it should be, so a server that replaced the file or added
+  to it instead of writing in place is reported (`IOException` naming `storeAtOffset`). The file is damaged by then.
+
+Reading, writing at the end (`APPE`), writing chunk 0 and `setLength()` don't use `REST` with `STOR`, and work with any
+server; their sizes are checked too.
 
 - The chunk size is the factory's buffer size, or `StreamOption.CHUNK_SIZE` (or `BUFFER_SIZE`) when the stream is
   opened with `StreamOptions`. Every chunk read or written is a data connection, so reading or writing at random is

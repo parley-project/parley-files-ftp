@@ -1193,11 +1193,10 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	/**
 	 * Random access in RandomAccessFile's modes: "r" opens read-only; "rw", "rws" and "rwd" open for
-	 * reading and writing and create the file if it is missing. A chunk is read with REST and RETR and
-	 * written with REST and STOR, so writing in the middle of a file needs a server that stores in place
-	 * at a REST offset (vsftpd; ProFTPD with AllowStoreRestart; parley's FtpServer with
-	 * setStoreAtOffset(true)); against one that doesn't, a save of such a chunk fails. See
-	 * {@link FtpRandomAccessIoController}.
+	 * reading and writing and create the file if it is missing. A chunk is read with REST and RETR. One
+	 * in the middle of the file is written with REST and STOR, only when the factory says the server
+	 * stores in place there ({@link FtpFileSourceFactory#setStoreAtOffset(boolean)}); otherwise saving it
+	 * fails with nothing written. See {@link FtpRandomAccessIoController}.
 	 *
 	 * @throws FileNotFoundException if it's a directory, missing in "r" mode, or can't be created
 	 * @since 1.1.0

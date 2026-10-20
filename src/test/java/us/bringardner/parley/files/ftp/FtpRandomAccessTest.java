@@ -27,8 +27,9 @@ import us.bringardner.parley.ftp.server.FtpServer;
 /**
  * FtpRandomAccessIoController: chunks read with REST and RETR and written with REST and STOR, against
  * parley's FtpServer with setStoreAtOffset(true), compared with java.io.RandomAccessFile doing the same
- * on a local file. Small chunks, so most writes land in the middle of the file. Against a server that
- * doesn't store at an offset, a write in the middle fails and leaves the file as it was.
+ * on a local file. Small chunks, so most writes land in the middle of the file. A write in the middle is
+ * done only when the factory says the server stores at an offset; a server that refuses leaves the file as
+ * it was, and one that replaces or adds to the file instead is caught by the size check.
  * <p>
  * The controller is used directly: FileSourceRandomAccessStream checks canWrite() when it is opened
  * "rw", which for the embedded server's anonymous login is judged from the files' "other" bits.
@@ -61,13 +62,14 @@ public class FtpRandomAccessTest {
 		return s;
 	}
 
-	private static FtpFileSourceFactory connect(FtpServer s) throws IOException {
+	private static FtpFileSourceFactory connect(FtpServer s, boolean storeAtOffset) throws IOException {
 		Properties prop = new Properties();
 		prop.setProperty(FtpFileSourceFactory.PROP_USER, "ftp");
 		prop.setProperty(FtpFileSourceFactory.PROP_PSWD, "foo@bar.com");
 		prop.setProperty(FtpFileSourceFactory.PROP_HOST, "localhost");
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + s.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
+		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "" + storeAtOffset);
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
 		f.getLogger().setLevel(Level.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
@@ -80,8 +82,8 @@ public class FtpRandomAccessTest {
 		offRoot = Files.createDirectories(dir.resolve("off"));
 		server = start(root, Integer.parseInt(System.getProperty("FtpRandomAccessPort", "8034")), true);
 		offServer = start(offRoot, Integer.parseInt(System.getProperty("FtpRandomAccessOffPort", "8035")), false);
-		factory = connect(server);
-		offFactory = connect(offServer);
+		factory = connect(server, true);
+		offFactory = connect(offServer, false);
 	}
 
 	@AfterAll
@@ -233,26 +235,101 @@ public class FtpRandomAccessTest {
 		assertArrayEquals(new byte[] {7, 8}, Files.readAllBytes(root.resolve("made.bin")));
 	}
 
-	/** A server that only resumes uploads: a write in the middle fails, and nothing changes. */
+	/** Not said to store at an offset: a write in the middle fails before anything is sent. */
 	@Test
-	void aServerThatWontStoreAtAnOffset() throws Exception {
+	void notSaidToStoreAtAnOffset() throws Exception {
 		byte[] data = bytes(500, 5);
 		Files.write(offRoot.resolve("off.bin"), data);
 		FtpRandomAccessIoController io = open(offFactory, "off.bin", "rw");
 		io.write(200, new byte[] {1, 2, 3}, 0, 3);
 		IOException e = assertThrows(IOException.class, io::save);
-		assertTrue(e.getMessage().contains("REST then STOR"), "says why: " + e);
+		assertTrue(e.getMessage().contains(FtpFileSourceFactory.PROP_STORE_AT_OFFSET), "says why: " + e);
+		assertTrue(e.getMessage().contains("Nothing was written"), e.getMessage());
 		assertArrayEquals(data, Files.readAllBytes(offRoot.resolve("off.bin")));
-		try {
-			io.close();   // tries to save again
-		} catch (Exception expected) {
-			// the same refusal
-		}
+		closeQuietly(io);
 
-		// at the end it is APPE, which every server does
+		// at the end it is APPE, which every server does; chunk 0 stores the whole file again
 		try (FtpRandomAccessIoController io2 = open(offFactory, "off.bin", "rw")) {
 			io2.write(500, new byte[] {4, 5}, 0, 2);
 		}
-		assertEquals(502, Files.size(offRoot.resolve("off.bin")));
+		try (FtpRandomAccessIoController io2 = open(offFactory, "off.bin", "rw")) {
+			io2.write(3, (byte) 6);
+		}
+		byte[] expect = Arrays.copyOf(data, 502);
+		expect[500] = 4; expect[501] = 5; expect[3] = 6;
+		assertArrayEquals(expect, Files.readAllBytes(offRoot.resolve("off.bin")));
+	}
+
+	/** Said to, but the server refuses REST then STOR: the save fails and nothing changes. */
+	@Test
+	void aServerThatRefuses() throws Exception {
+		FtpFileSourceFactory wrong = (FtpFileSourceFactory) offFactory.createThreadSafeCopy();
+		assertFalse(wrong.isStoreAtOffset());
+		wrong.setStoreAtOffset(true);
+		try {
+			byte[] data = bytes(500, 6);
+			Files.write(offRoot.resolve("refused.bin"), data);
+			FtpRandomAccessIoController io = open(wrong, "refused.bin", "rw");
+			io.write(200, new byte[] {1, 2, 3}, 0, 3);
+			IOException e = assertThrows(IOException.class, io::save);
+			assertTrue(e.getMessage().contains("won't store at an offset"), "says why: " + e);
+			assertArrayEquals(data, Files.readAllBytes(offRoot.resolve("refused.bin")));
+			closeQuietly(io);
+		} finally {
+			wrong.disConnect();
+		}
+	}
+
+	/**
+	 * A server that accepts REST then STOR but doesn't write in place: one that replaces the file with
+	 * the data (as IIS is reported to), and one that adds it to the end (as FileZilla Server is). They
+	 * are played here by sending a plain STOR, or APPE, where REST then STOR would go.
+	 */
+	@Test
+	void aServerThatDoesSomethingElseIsCaught() throws Exception {
+		for(boolean append : new boolean[] {false, true}) {
+			String name = append ? "appends.bin" : "replaces.bin";
+			byte[] data = bytes(500, 7);
+			Files.write(root.resolve(name), data);
+			FtpFileSource liar = new FtpFileSource("/" + name, factory) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				java.io.OutputStream getOutputStreamAt(long position, us.bringardner.parley.files.StreamOptions options) throws IOException {
+					return getOutputStream(append, options);
+				}
+			};
+			FtpRandomAccessIoController io = new FtpRandomAccessIoController(liar, "rw", CHUNK);
+			io.write(200, new byte[] {1, 2, 3}, 0, 3);
+			IOException e = assertThrows(IOException.class, io::save, name);
+			assertTrue(e.getMessage().contains("damaged"), name + ": " + e.getMessage());
+			assertTrue(e.getMessage().contains(append ? "added to the file" : "cut the file off or replaced it"), e.getMessage());
+			assertTrue(e.getMessage().contains(FtpFileSourceFactory.PROP_STORE_AT_OFFSET), e.getMessage());
+			closeQuietly(io);
+		}
+	}
+
+	@Test
+	void storeAtOffsetIsAConnectionProperty() throws Exception {
+		FtpFileSourceFactory f = new FtpFileSourceFactory();
+		assertFalse(f.isStoreAtOffset(), "off by default");
+		assertEquals("false", f.getConnectProperties().getProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET));
+		Properties p = f.getConnectProperties();
+		p.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "true");
+		f.setConnectionProperties(p);
+		assertTrue(f.isStoreAtOffset());
+		assertTrue(((FtpFileSourceFactory) f.createThreadSafeCopy()).isStoreAtOffset(), "copies keep it");
+		assertTrue(us.bringardner.parley.files.ConnectionSettings.find(f.getConnectionSettings(),
+				FtpFileSourceFactory.PROP_STORE_AT_OFFSET) != null, "a setting in a dialog");
+		f.setConnectionProperties((Properties) null);
+		assertFalse(f.isStoreAtOffset());
+	}
+
+	private static void closeQuietly(FtpRandomAccessIoController io) {
+		try {
+			io.close();   // tries to save again
+		} catch (Exception expected) {
+			// the same failure
+		}
 	}
 }
