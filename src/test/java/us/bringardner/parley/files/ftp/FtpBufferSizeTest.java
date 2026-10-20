@@ -171,7 +171,7 @@ public class FtpBufferSizeTest {
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			FileSource file = factory.createFileSource("/streamOptions.bin");
-			assertEquals(java.util.Set.of(StreamOption.BUFFER_SIZE), file.supportedStreamOptions());
+			assertEquals(java.util.Set.of(StreamOption.BUFFER_SIZE, StreamOption.CHUNK_SIZE), file.supportedStreamOptions());
 			assertEquals(20000, file.getStreamDefaults().bufferSize(), "what a plain open uses");
 
 			byte[] data = new byte[250_000];

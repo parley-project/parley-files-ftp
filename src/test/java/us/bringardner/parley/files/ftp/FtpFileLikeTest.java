@@ -119,8 +119,10 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 	}
 
 	/**
-	 * FtpFileSource has no random access or seekable stream: the protocol can read from an offset
-	 * (REST) but can't write in the middle of a file.
+	 * Not here: a random access stream checks canWrite() when it is opened "rw", and the embedded
+	 * server only lets "ftp" in while the files belong to whoever runs the tests, so canWrite() is
+	 * judged from the "other" bits and the stream refuses files a RandomAccessFile opens.
+	 * FtpRandomAccessTest tests FtpRandomAccessIoController against RandomAccessFile instead.
 	 */
 	@Override
 	protected boolean supportsRandomAccess() {

@@ -53,8 +53,8 @@ import us.bringardner.parley.ftp.client.FtpClient;
  * <ul>
  * <li><b>Locks:</b> {@code PROCESS} scope: this JVM only. FTP has no file locks, so other clients of the server aren't kept out. Range locks work within the JVM.</li>
  * <li><b>Atomic create:</b> <b>{@code createNewFile()} is not atomic</b>, against FileSource's contract: FTP has no command that creates a file only if it is missing, so two clients racing for one path can both be told true (it appends zero bytes, so it never empties a file another client made). {@code mkdir()} is atomic (MKD fails if the directory exists); use it where an atomic create is needed.</li>
- * <li><b>FileChannel:</b> FTP has no random access: a channel can be opened for reading, or for writing a new or emptied file ({@code CREATE}, {@code TRUNCATE_EXISTING}) or at its end ({@code APPEND}); not for reading and writing, nor for writing into an existing file.</li>
- * <li><b>map():</b> {@code READ_ONLY} maps a local copy of the region, read when it is mapped. {@code PRIVATE} and {@code READ_WRITE} need a channel open for reading and writing, which FTP can't give.</li>
+ * <li><b>FileChannel:</b> a channel for reading and writing uses random access ({@link FtpRandomAccessIoController}: REST and RETR to read a chunk, REST and STOR to write one), which needs a server that stores in place at a REST offset (vsftpd; ProFTPD with AllowStoreRestart; parley's FtpServer with setStoreAtOffset(true)). With any server a channel can be opened for reading, or for writing a new or emptied file ({@code CREATE}, {@code TRUNCATE_EXISTING}) or at its end ({@code APPEND}).</li>
+ * <li><b>map():</b> {@code READ_ONLY} maps a local copy of the region, read when it is mapped. {@code PRIVATE} and {@code READ_WRITE} need a channel open for reading and writing (see FileChannel).</li>
  * <li><b>force():</b> only sends the data: FTP can't ask the server to sync, and a server stores an upload when it ends, so what was written can't be read back before the channel is closed.</li>
  * </ul>
  * See parley-files' README ("Locking") for the rules every file system keeps.

@@ -4,8 +4,17 @@
 
 Needs parley-files 1.1.0.
 
+Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, bufferSize)`).
+
 ### Added
 
+- **Read-write random access** (`getRandomAccessStream(mode)`, `FtpRandomAccessIoController`): chunks are read with
+  `REST` and `RETR` and written with `REST` and `STOR`, which needs a server that stores in place at a `REST` offset
+  (vsftpd; ProFTPD with `AllowStoreRestart`; parley-ftp's `FtpServer` with `setStoreAtOffset(true)`). A chunk at the
+  end is added with `APPE`; `setLength()` adds zeros with `APPE`, and shortens a file by storing again the part that
+  stays. FileChannels for reading and writing (and `map()` in `PRIVATE`/`READ_WRITE`) work through it. See the
+  README, "Random access".
+- `supportedStreamOptions()` includes `CHUNK_SIZE` (the random access chunk size).
 - File locks (`lock()`, `tryLock()`, see parley-files). FTP has no locks of its own, so they reach this
   JVM only (`getLockScope()` is `PROCESS`). `FtpLockTest` runs parley-files' lock contract over FTP.
 
@@ -43,8 +52,7 @@ of the Parley library family. The code is the same; only names changed.
   open at once and commands work meanwhile.
 - **A read-only seekable stream** (`getSeekableInputStream()`): acts as a `RandomAccessFile` opened with
   `r`, over `REST`. A seek costs nothing until the next read, which reads through a short step forward or
-  starts a transfer at the new place. There is still no read-write random access: FTP can't write at an
-  offset.
+  starts a transfer at the new place. (1.0.0 had no read-write random access.)
 - `getLinkedTo()` returns where a link points when the server's listing says so (`LIST` `name -> target`,
   `MLST` `type=OS.unix=slink:target`); a link answers for what it points to in `exists`, `isFile`,
   `isDirectory`, `length` and `lastModified`, one that leads nowhere is there but doesn't exist, and a loop
