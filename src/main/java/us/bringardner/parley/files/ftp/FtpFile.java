@@ -284,6 +284,18 @@ public class FtpFile extends FtpClientFile {
 		}
 	}
 
+	/** MFCT, else MFF Create= (draft-somers-ftp-mfxx); false if the server has neither or refuses */
+	public boolean setCreationTime(long time) {
+		try {
+			return client().setCreationTime(getAbsolutePath(), time);
+		} catch (IOException e) {
+			logError("Can't set the creation time of "+getAbsolutePath(), e);
+			return false;
+		} finally {
+			factory.noteChange();
+		}
+	}
+
 	@Override
 	public boolean setLastModified(long lastModifiedTime) {
 		try {
