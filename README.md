@@ -53,8 +53,8 @@ In short, for `FtpFileSourceFactory` and `FtpsFileSourceFactory`:
 | Locks | `PROCESS`: this JVM only (FTP has no locks). Range locks work within the JVM. |
 | Atomic create | `createNewFile()` **is not atomic**; `mkdir()` is. |
 | Capabilities (`getCapabilities()`) | `PROCESS` locks; create **not** atomic, mkdir atomic; replace (`renameTo(dest, true)`) not atomic: delete, then rename; sync only sends; operations in one order |
-| FileChannel | no random access: read, or write a new or emptied file, or append; not read and write |
-| `map()` | `READ_ONLY` maps a local copy of the region; `PRIVATE` and `READ_WRITE` can't (they need a read-write channel) |
+| FileChannel | read and write through random access (see [Random access](#random-access)), which needs a server that stores at an offset; with any server: read, or write a new or emptied file, or append |
+| `map()` | `READ_ONLY` maps a local copy of the region; `PRIVATE` and `READ_WRITE` need a read-write channel (as FileChannel) |
 | `force()` | only sends the data; it can't be read back before the channel is closed |
 
 
@@ -70,7 +70,36 @@ if the directory exists); code that needs an atomic create over FTP uses it.
 `FileChannel.force()` over FTP only sends the data: FTP has no way to ask the server to sync, and a server stores
 an upload when it ends, so what was written can't be read back before the channel is closed. `map()` in
 `READ_ONLY` mode maps a local copy of the region (see parley-files); `PRIVATE` and `READ_WRITE` need a channel open
-for reading and writing, which needs random access, which FTP doesn't have.
+for reading and writing, which needs random access (below).
+
+## Random access
+
+`getRandomAccessStream(mode)` (`r`, `rw`, `rws`, `rwd`, as `RandomAccessFile`) reads and writes the file in chunks
+(`FtpRandomAccessIoController`). FTP has no command that reads or writes part of a file, but a transfer can start at a
+position:
+
+| | How |
+|---|---|
+| Read a chunk | `REST start`, `RETR`; the transfer is dropped once the chunk has arrived |
+| Write a chunk in the middle | `REST start`, `STOR`: the server writes from `start` in place and leaves the rest of the file |
+| Write a chunk at the end | `APPE` (with zeros for any gap) |
+| Write chunk 0 of a longer file | `REST 0` is no restart (a `STOR` would replace the file), so the rest of the file is copied to a local temporary file and stored again after the chunk |
+| `setLength()` longer | `APPE` of zeros |
+| `setLength()` shorter | FTP can't truncate: the part that stays is copied to a local temporary file and stored again |
+
+**Writing in the middle needs a server that stores at a `REST` offset in place**: vsftpd does; ProFTPD with
+`AllowStoreRestart on`; parley-ftp's `FtpServer` with `setStoreAtOffset(true)` (`JFtp.storeAtOffset`). Many servers
+accept `REST` before `STOR` only to resume an upload at the end of the file; against those, saving a chunk in the middle
+fails (`IOException`, saying so) and nothing is written. Reading, and writing at the end, work with any server.
+
+- The chunk size is the factory's buffer size, or `StreamOption.CHUNK_SIZE` (or `BUFFER_SIZE`) when the stream is
+  opened with `StreamOptions`. Every chunk read or written is a data connection, so reading or writing at random is
+  slow; a bigger chunk makes fewer of them. For reading only, `getSeekableInputStream()` is cheaper: it reads on from
+  where it is.
+- Nothing is locked or atomic: a chunk is stored when it is saved, a transfer that breaks leaves what arrived, and
+  changes another client makes meanwhile can be overwritten.
+- The stream checks `canWrite()` when it is opened `rw`. Over FTP that is judged from the permissions in the listing
+  for the user who logged in (owner, group or other), which isn't always what the server lets that user do.
 
 ## Tests
 

@@ -45,6 +45,8 @@ import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.FileSourceFilter;
 import us.bringardner.parley.files.FileSourceProgress;
+import us.bringardner.parley.files.FileSourceRandomAccessStream;
+import us.bringardner.parley.files.IRandomAccessStream;
 import us.bringardner.parley.files.ISeekableInputStream;
 import us.bringardner.parley.files.StreamOption;
 import us.bringardner.parley.files.StreamOptions;
@@ -548,6 +550,32 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 
+	/**
+	 * REST position then STOR, on a connection of its own: the data goes into the file from position.
+	 * A server that writes in place there leaves the rest of the file as it was; one that doesn't
+	 * accept REST before STOR (or only to resume an upload) refuses it, and this throws with nothing
+	 * stored. Used by {@link FtpRandomAccessIoController}.
+	 *
+	 * @param position where the data goes, &gt; 0 (0 would be a plain STOR, which replaces the file)
+	 */
+	OutputStream getOutputStreamAt(long position, StreamOptions options) throws IOException {
+		if( position <= 0 ) {
+			throw new IllegalArgumentException("position must be > 0, not "+position);
+		}
+		String path = getAbsolutePath();
+		FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
+		FtpFileSourceFactory.Transfer transfer = f.openTransfer();
+		try {
+			OutputStream out = transfer.client.getOutputStream(path, false, position, bufferSizeIn(options));
+			return new FtpFileSourceFactory.TransferOutputStream(f, transfer, out, this::forgetWhatIsKnown);
+		} catch (IOException | RuntimeException e) {
+			f.closeTransfer(transfer, false);
+			throw e;
+		} finally {
+			forgetWhatIsKnown();
+		}
+	}
+
 	public String getParent() {
 		return parent;
 	}
@@ -941,10 +969,13 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	// ---- streams with their own buffer size (see StreamOptions)
 
-	/** FTP buffers its data connection; that buffer is the one setting a stream has here. */
+	/**
+	 * FTP buffers its data connection; that buffer is a setting of every stream here. A random access
+	 * stream also takes a chunk size: how much one transfer reads or writes.
+	 */
 	@Override
 	public java.util.Set<StreamOption<?>> supportedStreamOptions() {
-		return java.util.Collections.singleton(StreamOption.BUFFER_SIZE);
+		return java.util.Set.of(StreamOption.BUFFER_SIZE, StreamOption.CHUNK_SIZE);
 	}
 
 	/** The connection's buffer size, which a stream opened without one uses. */
@@ -1135,11 +1166,11 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	}
 
 	/**
-	 * A read-only stream that can be moved, as a RandomAccessFile opened with "r". FTP can read
-	 * from an offset (REST) but can't write in the middle of a file, so there is no read-write
-	 * random access, and this is how a file is read at random. A seek costs nothing until the
-	 * next read, which starts a transfer at the new place (a short step forward is read through
-	 * instead). See {@link FtpSeekableInputStream}.
+	 * A read-only stream that can be moved, as a RandomAccessFile opened with "r". A seek costs
+	 * nothing until the next read, which starts a transfer at the new place (a short step forward is
+	 * read through instead), so reading on from a place is cheaper than with
+	 * {@link #getRandomAccessStream(String)}, which reads a chunk per transfer. See
+	 * {@link FtpSeekableInputStream}.
 	 */
 	public ISeekableInputStream getSeekableInputStream() throws IOException {
 		return openSeekable(0);
@@ -1158,6 +1189,48 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			throw new FileNotFoundException(getAbsolutePath()+" (Is a directory)");
 		}
 		return new FtpSeekableInputStream(this, bufferSize);
+	}
+
+	/**
+	 * Random access in RandomAccessFile's modes: "r" opens read-only; "rw", "rws" and "rwd" open for
+	 * reading and writing and create the file if it is missing. A chunk is read with REST and RETR and
+	 * written with REST and STOR, so writing in the middle of a file needs a server that stores in place
+	 * at a REST offset (vsftpd; ProFTPD with AllowStoreRestart; parley's FtpServer with
+	 * setStoreAtOffset(true)); against one that doesn't, a save of such a chunk fails. See
+	 * {@link FtpRandomAccessIoController}.
+	 *
+	 * @throws FileNotFoundException if it's a directory, missing in "r" mode, or can't be created
+	 * @since 1.1.0
+	 */
+	@Override
+	public IRandomAccessStream getRandomAccessStream(String mode) throws IOException {
+		return openRandomAccess(mode, 0);
+	}
+
+	/**
+	 * {@link #getRandomAccessStream(String)} with a chunk size of its own ({@link StreamOption#CHUNK_SIZE}:
+	 * how much one transfer reads or writes), else the buffer size, else the factory's.
+	 * @since 1.1.0
+	 */
+	@Override
+	public IRandomAccessStream getRandomAccessStream(String mode, StreamOptions options) throws IOException {
+		StreamOptions o = StreamOptions.orNone(options);
+		Integer chunk = o.get(StreamOption.CHUNK_SIZE);
+		return openRandomAccess(mode, chunk != null && chunk > 0 ? chunk : bufferSizeIn(o));
+	}
+
+	private IRandomAccessStream openRandomAccess(String mode, int chunkSize) throws IOException {
+		FtpRandomAccessIoController io = new FtpRandomAccessIoController(this, mode, chunkSize);
+		try {
+			return new FileSourceRandomAccessStream(io, mode);
+		} catch (IOException | RuntimeException e) {
+			try {
+				io.close();
+			} catch (Exception e2) {
+				e.addSuppressed(e2);
+			}
+			throw e;
+		}
 	}
 
 	@Override

@@ -1,0 +1,258 @@
+package us.bringardner.parley.files.ftp;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Properties;
+import java.util.Random;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.files.FileSourceFactory;
+import us.bringardner.parley.ftp.server.FtpServer;
+
+/**
+ * FtpRandomAccessIoController: chunks read with REST and RETR and written with REST and STOR, against
+ * parley's FtpServer with setStoreAtOffset(true), compared with java.io.RandomAccessFile doing the same
+ * on a local file. Small chunks, so most writes land in the middle of the file. Against a server that
+ * doesn't store at an offset, a write in the middle fails and leaves the file as it was.
+ * <p>
+ * The controller is used directly: FileSourceRandomAccessStream checks canWrite() when it is opened
+ * "rw", which for the embedded server's anonymous login is judged from the files' "other" bits.
+ */
+public class FtpRandomAccessTest {
+
+	private static final int CHUNK = 64;
+
+	@TempDir
+	static Path dir;
+	private static Path root;
+	private static Path offRoot;
+	private static FtpServer server;
+	private static FtpServer offServer;
+	private static FtpFileSourceFactory factory;
+	private static FtpFileSourceFactory offFactory;
+
+	private static FtpServer start(Path root, int port, boolean storeAtOffset) throws Exception {
+		FtpServer s = new FtpServer();
+		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
+		s.setPort(port);
+		s.setStoreAtOffset(storeAtOffset);
+		s.getLogger().setLevel(Level.ERROR);
+		s.start();
+		long t = System.currentTimeMillis();
+		while( !s.isRunning() && System.currentTimeMillis() - t < 5000 ) {
+			Thread.sleep(50);
+		}
+		assertTrue(s.isRunning(), "FTP server did not start");
+		return s;
+	}
+
+	private static FtpFileSourceFactory connect(FtpServer s) throws IOException {
+		Properties prop = new Properties();
+		prop.setProperty(FtpFileSourceFactory.PROP_USER, "ftp");
+		prop.setProperty(FtpFileSourceFactory.PROP_PSWD, "foo@bar.com");
+		prop.setProperty(FtpFileSourceFactory.PROP_HOST, "localhost");
+		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + s.getPort());
+		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
+		FtpFileSourceFactory f = new FtpFileSourceFactory();
+		f.getLogger().setLevel(Level.ERROR);
+		assertTrue(f.connect(prop), "can't connect to the FTP server");
+		return f;
+	}
+
+	@BeforeAll
+	static void startServers() throws Exception {
+		root = Files.createDirectories(dir.resolve("on"));
+		offRoot = Files.createDirectories(dir.resolve("off"));
+		server = start(root, Integer.parseInt(System.getProperty("FtpRandomAccessPort", "8034")), true);
+		offServer = start(offRoot, Integer.parseInt(System.getProperty("FtpRandomAccessOffPort", "8035")), false);
+		factory = connect(server);
+		offFactory = connect(offServer);
+	}
+
+	@AfterAll
+	static void stopServers() throws Exception {
+		for(FtpFileSourceFactory f : new FtpFileSourceFactory[] {factory, offFactory}) {
+			if( f != null ) {
+				f.disConnect();
+			}
+		}
+		for(FtpServer s : new FtpServer[] {server, offServer}) {
+			if( s != null ) {
+				s.stop();
+			}
+		}
+	}
+
+	private static FtpRandomAccessIoController open(FtpFileSourceFactory f, String name, String mode) throws IOException {
+		return new FtpRandomAccessIoController((FtpFileSource) f.createFileSource("/" + name), mode, CHUNK);
+	}
+
+	private static byte[] bytes(int n, long seed) {
+		byte[] b = new byte[n];
+		new Random(seed).nextBytes(b);
+		return b;
+	}
+
+	private static byte[] read(FtpRandomAccessIoController io, long pos, int n) throws IOException {
+		byte[] b = new byte[n];
+		int got = 0;
+		while( got < n ) {
+			int r = io.read(pos + got, b, got, n - got);
+			if( r < 0 ) {
+				break;
+			}
+			got += r;
+		}
+		return Arrays.copyOf(b, got);
+	}
+
+	@Test
+	void readsChunksFromAnywhere() throws Exception {
+		byte[] data = bytes(1000, 1);
+		Files.write(root.resolve("read.bin"), data);
+		try (FtpRandomAccessIoController io = open(factory, "read.bin", "r")) {
+			assertEquals(CHUNK, io.getChunkSize());
+			assertEquals(1000, io.length());
+			assertArrayEquals(Arrays.copyOfRange(data, 900, 1000), read(io, 900, 100));
+			assertEquals(data[10] & 0xff, io.read(10));
+			assertArrayEquals(data, read(io, 0, 1000));
+			assertEquals(-1, io.read(1000));
+			assertEquals(-1, io.read(5000));
+		}
+	}
+
+	@Test
+	void writesInTheMiddleAndAtTheStartKeepTheRest() throws Exception {
+		byte[] data = bytes(1000, 2);
+		Files.write(root.resolve("write.bin"), data);
+		try (FtpRandomAccessIoController io = open(factory, "write.bin", "rw")) {
+			io.write(500, new byte[] {1, 2, 3}, 0, 3);   // middle: REST, STOR
+			io.write(5, (byte) 9);                      // chunk 0: the rest is stored again after it
+			io.write(990, new byte[20], 0, 20);         // over the end: it grows
+		}
+		byte[] expect = Arrays.copyOf(data, 1010);
+		expect[500] = 1; expect[501] = 2; expect[502] = 3;
+		expect[5] = 9;
+		Arrays.fill(expect, 990, 1010, (byte) 0);
+		assertArrayEquals(expect, Files.readAllBytes(root.resolve("write.bin")));
+	}
+
+	@Test
+	void setLengthGrowsAndShrinks() throws Exception {
+		byte[] d = bytes(300, 3);
+		Files.write(root.resolve("len.bin"), d);
+		try (FtpRandomAccessIoController io = open(factory, "len.bin", "rw")) {
+			io.setLength(400);
+			assertEquals(400, io.length());
+		}
+		assertArrayEquals(Arrays.copyOf(d, 400), Files.readAllBytes(root.resolve("len.bin")), "zeros added");
+		try (FtpRandomAccessIoController io = open(factory, "len.bin", "rw")) {
+			io.setLength(100);
+			assertEquals(100, io.length());
+		}
+		assertArrayEquals(Arrays.copyOf(d, 100), Files.readAllBytes(root.resolve("len.bin")));
+		try (FtpRandomAccessIoController io = open(factory, "len.bin", "rw")) {
+			io.setLength(0);
+			assertEquals(0, io.length());
+		}
+		assertEquals(0, Files.size(root.resolve("len.bin")));
+	}
+
+	/** Random writes, reads and setLength, the same as RandomAccessFile on a local copy. */
+	@Test
+	void actsLikeRandomAccessFile() throws Exception {
+		byte[] start = bytes(777, 4);
+		Files.write(root.resolve("same.bin"), start);
+		Path oracle = dir.resolve("oracle.bin");
+		Files.write(oracle, start);
+		Random r = new Random(42);
+		try (FtpRandomAccessIoController io = open(factory, "same.bin", "rw");
+				RandomAccessFile raf = new RandomAccessFile(oracle.toFile(), "rw")) {
+			for(int i = 0; i < 200; i++) {
+				int op = r.nextInt(10);
+				long len = raf.length();
+				String step = " (step " + i + ")";
+				if( op < 4 ) {
+					long pos = r.nextInt((int) len + 50);
+					byte[] b = bytes(1 + r.nextInt(150), i);
+					io.write(pos, b, 0, b.length);
+					raf.seek(pos);
+					raf.write(b);
+				} else if( op < 8 ) {
+					long pos = r.nextInt((int) len + 10);
+					int n = 1 + r.nextInt(150);
+					byte[] e = new byte[n];
+					raf.seek(pos);
+					int got = Math.max(raf.read(e), 0);
+					assertArrayEquals(Arrays.copyOf(e, got), read(io, pos, n), "read " + n + " at " + pos + step);
+				} else if( op == 8 ) {
+					long n = r.nextInt((int) len + 100);
+					io.setLength(n);
+					raf.setLength(n);
+				}
+				assertEquals(raf.length(), io.length(), "length" + step);
+			}
+		}
+		assertArrayEquals(Files.readAllBytes(oracle), Files.readAllBytes(root.resolve("same.bin")));
+	}
+
+	@Test
+	void modes() throws Exception {
+		assertThrows(IllegalArgumentException.class, () -> open(factory, "x.bin", "w"));
+		assertThrows(FileNotFoundException.class, () -> open(factory, "missing.bin", "r"));
+		assertFalse(Files.exists(root.resolve("missing.bin")));
+		Files.createDirectories(root.resolve("aDir"));
+		assertThrows(FileNotFoundException.class, () -> open(factory, "aDir", "rw"));
+
+		try (FtpRandomAccessIoController io = open(factory, "made.bin", "rw")) {
+			assertEquals(0, io.length());
+			io.write(0, new byte[] {7, 8}, 0, 2);
+		}
+		assertArrayEquals(new byte[] {7, 8}, Files.readAllBytes(root.resolve("made.bin")));
+
+		try (FtpRandomAccessIoController io = open(factory, "made.bin", "r")) {
+			assertThrows(IOException.class, () -> io.write(0, (byte) 1));
+			assertThrows(IOException.class, () -> io.setLength(0));
+			assertEquals(7, io.read(0));
+		}
+		assertArrayEquals(new byte[] {7, 8}, Files.readAllBytes(root.resolve("made.bin")));
+	}
+
+	/** A server that only resumes uploads: a write in the middle fails, and nothing changes. */
+	@Test
+	void aServerThatWontStoreAtAnOffset() throws Exception {
+		byte[] data = bytes(500, 5);
+		Files.write(offRoot.resolve("off.bin"), data);
+		FtpRandomAccessIoController io = open(offFactory, "off.bin", "rw");
+		io.write(200, new byte[] {1, 2, 3}, 0, 3);
+		IOException e = assertThrows(IOException.class, io::save);
+		assertTrue(e.getMessage().contains("REST then STOR"), "says why: " + e);
+		assertArrayEquals(data, Files.readAllBytes(offRoot.resolve("off.bin")));
+		try {
+			io.close();   // tries to save again
+		} catch (Exception expected) {
+			// the same refusal
+		}
+
+		// at the end it is APPE, which every server does
+		try (FtpRandomAccessIoController io2 = open(offFactory, "off.bin", "rw")) {
+			io2.write(500, new byte[] {4, 5}, 0, 2);
+		}
+		assertEquals(502, Files.size(offRoot.resolve("off.bin")));
+	}
+}
