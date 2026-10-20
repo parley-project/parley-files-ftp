@@ -53,7 +53,7 @@ In short, for `FtpFileSourceFactory` and `FtpsFileSourceFactory`:
 | Locks | `PROCESS`: this JVM only (FTP has no locks). Range locks work within the JVM. |
 | Atomic create | `createNewFile()` **is not atomic**; `mkdir()` is. |
 | Capabilities (`getCapabilities()`) | `PROCESS` locks; create **not** atomic, mkdir atomic; replace (`renameTo(dest, true)`) not atomic: delete, then rename; sync only sends; operations in one order |
-| FileChannel | read and write through random access (see [Random access](#random-access)); writing in the middle needs `storeAtOffset`; with any server: read, or write a new or emptied file, or append |
+| FileChannel | read and write through random access (see [Random access](#random-access)); writing in the middle needs a server with `RANG`, or `storeAtOffset`; with any server: read, or write a new or emptied file, or append |
 | `map()` | `READ_ONLY` maps a local copy of the region; `PRIVATE` and `READ_WRITE` need a read-write channel (as FileChannel) |
 | `force()` | only sends the data; it can't be read back before the channel is closed |
 
@@ -75,12 +75,19 @@ for reading and writing, which needs random access (below).
 ## Random access
 
 `getRandomAccessStream(mode)` (`r`, `rw`, `rws`, `rwd`, as `RandomAccessFile`) reads and writes the file in chunks
-(`FtpRandomAccessIoController`). FTP has no command that reads or writes part of a file, but a transfer can start at a
-position:
+(`FtpRandomAccessIoController`). Standard FTP has no command that reads or writes part of a file, but a transfer can
+start at a position. A server that lists `RANG` in `FEAT` ([draft-bryan-ftp-range](https://datatracker.ietf.org/doc/html/draft-bryan-ftp-range-08),
+an expired draft that parley-ftp's `FtpServer` has) reads and writes exactly a range, and is used for both:
+
+| | With `RANG` | Without |
+|---|---|---|
+| Read a chunk | `RANG start end`, `RETR`: just the chunk is sent | `REST start`, `RETR`; the transfer is dropped once the chunk has arrived |
+| Write a chunk in the middle, or chunk 0 | `RANG start end`, `STOR`: written in place, nothing else changes. `storeAtOffset` isn't needed | below |
+
+Without `RANG`:
 
 | | How |
 |---|---|
-| Read a chunk | `REST start`, `RETR`; the transfer is dropped once the chunk has arrived |
 | Write a chunk in the middle | `REST start`, `STOR`: the server writes from `start` in place and leaves the rest of the file. **Only with `storeAtOffset`** (below) |
 | Write a chunk at the end | `APPE` (with zeros for any gap) |
 | Write chunk 0 of a longer file | `REST 0` is no restart (a `STOR` would replace the file), so the rest of the file is copied to a local temporary file and stored again after the chunk |
@@ -100,7 +107,8 @@ and servers differ:
 | IIS | Reported to keep only the new data (the file is replaced) |
 | FileZilla Server | Reported to add the data to the end; it also forgets `REST` if `PASV` comes between (this client sends `REST` straight before `STOR`) |
 
-Check yours before setting `storeAtOffset`. Without it, saving a chunk in the middle fails before anything is sent
+None of this applies to a server with `RANG`: its writes say exactly which octets change. Check yours before setting
+`storeAtOffset`. Without it, saving a chunk in the middle fails before anything is sent
 (`IOException`, saying so). With it:
 
 - a server that refuses the `REST` or the `STOR` leaves the file as it was, and the save fails;

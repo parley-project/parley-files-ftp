@@ -38,12 +38,17 @@ import us.bringardner.parley.files.StreamOptions;
 
 /**
  * Random access to an FTP file in chunks (the factory's buffer size unless the stream was opened with
- * a chunk size). FTP has no command that reads or writes part of a file, but a transfer can start at a
- * position:
+ * a chunk size). Standard FTP has no command that reads or writes part of a file, but a transfer can
+ * start at a position. A server that lists {@code RANG} in {@code FEAT} (draft-bryan-ftp-range, which
+ * parley's FtpServer has) can do both, and is used for them:
  * <ul>
- * <li><b>Reading</b> a chunk is {@code REST start} then {@code RETR}; the transfer is dropped once the
- * chunk has arrived.</li>
- * <li><b>Writing</b> a chunk in the middle is {@code REST start} then {@code STOR}, which a server that
+ * <li><b>Reading</b> a chunk is {@code RANG start end} then {@code RETR}, which sends just the chunk.
+ * Without RANG it is {@code REST start} then {@code RETR}, and the transfer is dropped once the chunk
+ * has arrived.</li>
+ * <li><b>Writing</b> a chunk anywhere in the file is {@code RANG start end} then {@code STOR}, which
+ * writes it in place and changes nothing else; {@link FtpFileSourceFactory#setStoreAtOffset(boolean)}
+ * isn't needed. Without RANG it is done as follows.</li>
+ * <li><b>Writing</b> a chunk in the middle without RANG is {@code REST start} then {@code STOR}, which a server that
  * writes in place stores from that position, leaving the rest of the file as it was. The FTP standards
  * don't say what a server does there, and servers differ: some refuse, some replace the file with the
  * new data, some add it to the end. So this is done only when the factory says the server stores in
@@ -181,13 +186,14 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 	}
 
 	/**
-	 * REST start then RETR, and read 'want' bytes (a transfer may return them in pieces). The transfer
-	 * is dropped once they have arrived, which the server sees as an aborted RETR.
+	 * RANG start end then RETR (or, without RANG, REST start then RETR), and read 'want' bytes (a
+	 * transfer may return them in pieces). Without RANG the transfer is dropped once they have arrived,
+	 * which the server sees as an aborted RETR.
 	 */
 	private byte[] readBlock(long start, int want) throws IOException {
 		byte[] ret = new byte[want];
 		int got = 0;
-		try (InputStream in = ftpFile.getInputStream(start, transferOptions())) {
+		try (InputStream in = ftpFile.getInputStream(start, start + want - 1, transferOptions())) {
 			while( got < want ) {
 				int n = in.read(ret, got, want-got);
 				if( n < 0 ) {
@@ -203,14 +209,14 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 		return got == want ? ret : Arrays.copyOf(ret, got);
 	}
 
-	/** Copies count bytes of the stored file from start to out (REST start, RETR). */
+	/** Copies count bytes of the stored file from start to out (RANG or REST, then RETR). */
 	private void copyRange(long start, long count, OutputStream out) throws IOException {
 		if( count <= 0 ) {
 			return;
 		}
 		byte[] buf = new byte[(int) Math.min(count, Math.max(8192, chunkSize))];
 		long left = count;
-		try (InputStream in = ftpFile.getInputStream(start, transferOptions())) {
+		try (InputStream in = ftpFile.getInputStream(start, start + count - 1, transferOptions())) {
 			while( left > 0 ) {
 				int n = in.read(buf, 0, (int) Math.min(buf.length, left));
 				if( n < 0 ) {
@@ -245,6 +251,13 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 			// at (or past) the end: APPE, with zeros for any gap
 			appendZerosThen(start - len, data);
 			checkSize(start + data.length, "adding "+data.length+" bytes at "+start+" (APPE)");
+		} else if( rangSupported() ) {
+			// RANG then STOR: in place, anywhere in the file, and nothing outside the range changes
+			long end = start + data.length - 1;
+			try (OutputStream out = ftpFile.getOutputStream(start, end, transferOptions())) {
+				out.write(data);
+			}
+			checkSize(Math.max(len, start + data.length), "writing "+data.length+" bytes at "+start+" (RANG "+start+" "+end+" then STOR)");
 		} else if( start == 0 ) {
 			if( data.length >= len ) {
 				// covers the whole file: a plain STOR replaces it
@@ -278,6 +291,16 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 						+ "), so the file is damaged. Set "+FtpFileSourceFactory.PROP_STORE_AT_OFFSET+" false for this server.");
 			}
 		}
+	}
+
+	/** null until the server has been asked (FEAT is read once per connection anyway). */
+	private Boolean rang;
+
+	private boolean rangSupported() throws IOException {
+		if( rang == null ) {
+			rang = ftpFile.isRangSupported();
+		}
+		return rang;
 	}
 
 	private boolean factoryStoresAtOffset() {

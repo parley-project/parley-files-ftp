@@ -16,6 +16,9 @@ Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, buf
   server that didn't write in place is reported. A chunk at the end is added with `APPE`; `setLength()` adds zeros
   with `APPE`, and shortens a file by storing again the part that stays. FileChannels for reading and writing (and `map()` in `PRIVATE`/`READ_WRITE`) work through it. See the
   README, "Random access".
+- Random access uses `RANG` (draft-bryan-ftp-range) when the server lists it in `FEAT`: a chunk is read with `RANG`
+  then `RETR` (just the chunk is sent) and written anywhere, chunk 0 included, with `RANG` then `STOR`, in place and
+  without `storeAtOffset`. `FtpFileSourceFactory.isRangSupported()`. Needs parley-ftp 1.1.0's `RANG` client methods.
 - `supportedStreamOptions()` includes `CHUNK_SIZE` (the random access chunk size).
 - File locks (`lock()`, `tryLock()`, see parley-files). FTP has no locks of its own, so they reach this
   JVM only (`getLockScope()` is `PROCESS`). `FtpLockTest` runs parley-files' lock contract over FTP.

@@ -576,6 +576,58 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		}
 	}
 
+	/** @return true if the server has RANG (see {@link FtpFileSourceFactory#isRangSupported()}) */
+	boolean isRangSupported() throws IOException {
+		return ((FtpFileSourceFactory) getFileSourceFactory()).isRangSupported();
+	}
+
+	/**
+	 * The octets from start to end (inclusive), on a connection of its own: RANG start end then RETR
+	 * when the server has RANG; otherwise the transfer starts at start (REST) and the stream stops after
+	 * end. Used by {@link FtpRandomAccessIoController}.
+	 */
+	InputStream getInputStream(long start, long end, StreamOptions options) throws IOException {
+		FtpFile tmp = getTarget();
+		if( tmp == null ) {
+			throw new FileNotFoundException(getAbsolutePath()+" does not exist");
+		}
+		if( !tmp.isFile() ) {
+			throw new IOException("Can't create stream from directory");
+		}
+		if( start >= length() ) {
+			return new java.io.ByteArrayInputStream(new byte[0]);
+		}
+		FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
+		FtpFileSourceFactory.Transfer transfer = f.openTransfer();
+		try {
+			InputStream in = transfer.client.getInputStream(getAbsolutePath(), false, start, end, bufferSizeIn(options));
+			return new FtpFileSourceFactory.TransferInputStream(f, transfer, in);
+		} catch (IOException | RuntimeException e) {
+			f.closeTransfer(transfer, false);
+			throw e;
+		}
+	}
+
+	/**
+	 * RANG start end then STOR, on a connection of its own: the data goes into the file from start,
+	 * in place, and nothing outside the range changes (draft-bryan-ftp-range). A server that refuses
+	 * the RANG makes this throw with nothing stored. Used by {@link FtpRandomAccessIoController}.
+	 */
+	OutputStream getOutputStream(long start, long end, StreamOptions options) throws IOException {
+		String path = getAbsolutePath();
+		FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
+		FtpFileSourceFactory.Transfer transfer = f.openTransfer();
+		try {
+			OutputStream out = transfer.client.getOutputStream(path, false, start, end, bufferSizeIn(options));
+			return new FtpFileSourceFactory.TransferOutputStream(f, transfer, out, this::forgetWhatIsKnown);
+		} catch (IOException | RuntimeException e) {
+			f.closeTransfer(transfer, false);
+			throw e;
+		} finally {
+			forgetWhatIsKnown();
+		}
+	}
+
 	public String getParent() {
 		return parent;
 	}
