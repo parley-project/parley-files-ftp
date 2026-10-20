@@ -43,12 +43,15 @@ import us.bringardner.parley.files.StreamOptions;
  * <ul>
  * <li><b>Reading</b> a chunk is {@code REST start} then {@code RETR}; the transfer is dropped once the
  * chunk has arrived.</li>
- * <li><b>Writing</b> a chunk is {@code REST start} then {@code STOR}, which a server that writes in place
- * stores from that position, leaving the rest of the file as it was (vsftpd does; ProFTPD with
- * {@code AllowStoreRestart}; parley's FtpServer with {@code setStoreAtOffset(true)}). A server that
- * accepts {@code REST} before {@code STOR} only to resume an upload refuses it, and the save fails with
- * nothing written. A chunk at the end of the file is added with {@code APPE}, which every server
- * does.</li>
+ * <li><b>Writing</b> a chunk in the middle is {@code REST start} then {@code STOR}, which a server that
+ * writes in place stores from that position, leaving the rest of the file as it was. The FTP standards
+ * don't say what a server does there, and servers differ: some refuse, some replace the file with the
+ * new data, some add it to the end. So this is done only when the factory says the server stores in
+ * place ({@link FtpFileSourceFactory#setStoreAtOffset(boolean)}, e.g. parley's FtpServer with
+ * {@code setStoreAtOffset(true)}); otherwise saving such a chunk fails before anything is sent. A chunk
+ * at the end of the file is added with {@code APPE}, which every server does.</li>
+ * <li>After every write the file's size is checked against what it should be. A server that replaced
+ * or added to the file instead of writing in place is reported (the file is damaged by then).</li>
  * <li>A chunk at position 0 can't be written with {@code REST}: {@code REST 0} is no restart, and
  * {@code STOR} would replace the whole file. If the file is longer than the chunk, the rest of it is
  * copied to a local temporary file and stored again after the chunk.</li>
@@ -229,21 +232,52 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 		if( start >= len ) {
 			// at (or past) the end: APPE, with zeros for any gap
 			appendZerosThen(start - len, data);
+			checkSize(start + data.length, "adding "+data.length+" bytes at "+start+" (APPE)");
 		} else if( start == 0 ) {
 			if( data.length >= len ) {
 				// covers the whole file: a plain STOR replaces it
 				try (OutputStream out = ftpFile.getOutputStream(false, transferOptions())) {
 					out.write(data);
 				}
+				checkSize(data.length, "storing "+data.length+" bytes (STOR)");
 			} else {
 				// REST 0 is no restart, so STOR would lose the rest: store it again after the chunk
 				replaceWith(data, data.length, len - data.length);
+				checkSize(len, "storing the file again with "+data.length+" bytes changed at 0 (STOR)");
 			}
 		} else {
-			// in the middle: REST start then STOR
+			// in the middle: REST start then STOR, only where the server is known to store in place
+			if( !factoryStoresAtOffset() ) {
+				throw new IOException("Can't write "+data.length+" bytes at "+start+" in "+ftpFile.getAbsolutePath()
+						+" ("+len+" bytes): writing in the middle of a file over FTP is REST then STOR, which servers"
+						+ " handle differently (some replace or add to the file). It is done only for a server"
+						+ " that stores in place at a REST offset: set "+FtpFileSourceFactory.PROP_STORE_AT_OFFSET
+						+ " (FtpFileSourceFactory.setStoreAtOffset(true)) for one that does. Nothing was written.");
+			}
 			try (OutputStream out = openAt(start)) {
 				out.write(data);
 			}
+			long expect = Math.max(len, start + data.length);
+			long now = storedLength();
+			if( now != expect ) {
+				throw new IOException(ftpFile.getAbsolutePath()+" is "+now+" bytes after writing "+data.length
+						+" bytes at "+start+" (REST then STOR) into "+len+" bytes; it should be "+expect
+						+ ". The server didn't store in place at the offset ("+(now < expect ? "it cut the file off or replaced it" : "it added to the file")
+						+ "), so the file is damaged. Set "+FtpFileSourceFactory.PROP_STORE_AT_OFFSET+" false for this server.");
+			}
+		}
+	}
+
+	private boolean factoryStoresAtOffset() {
+		return ((FtpFileSourceFactory) ftpFile.getFileSourceFactory()).isStoreAtOffset();
+	}
+
+	/** After a write: the stored file must be this long, or something else changed it. */
+	private void checkSize(long expect, String what) throws IOException {
+		long now = storedLength();
+		if( now != expect ) {
+			throw new IOException(ftpFile.getAbsolutePath()+" is "+now+" bytes after "+what
+					+"; it should be "+expect+". Was it changed by someone else meanwhile?");
 		}
 	}
 
@@ -253,9 +287,8 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 			return ftpFile.getOutputStreamAt(position, transferOptions());
 		} catch (IOException e) {
 			throw new IOException("Can't write "+ftpFile.getAbsolutePath()+" at "+position
-					+": the server won't store at an offset (REST then STOR). Random access writes need"
-					+ " a server that writes in place there (vsftpd; ProFTPD with AllowStoreRestart;"
-					+ " parley's FtpServer with setStoreAtOffset(true)).", e);
+					+": the server won't store at an offset (REST then STOR), although "
+					+ FtpFileSourceFactory.PROP_STORE_AT_OFFSET+" is set. Nothing was written.", e);
 		}
 	}
 
@@ -325,6 +358,7 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 		} else {
 			replaceWith(null, 0, newLength);
 		}
+		checkSize(newLength, "setting its length from "+len+" to "+newLength);
 	}
 
 	/** Every chunk is stored (the server has replied that the transfer is complete) when it is saved. */

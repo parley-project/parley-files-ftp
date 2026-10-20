@@ -9,10 +9,11 @@ Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, buf
 ### Added
 
 - **Read-write random access** (`getRandomAccessStream(mode)`, `FtpRandomAccessIoController`): chunks are read with
-  `REST` and `RETR` and written with `REST` and `STOR`, which needs a server that stores in place at a `REST` offset
-  (vsftpd; ProFTPD with `AllowStoreRestart`; parley-ftp's `FtpServer` with `setStoreAtOffset(true)`). A chunk at the
-  end is added with `APPE`; `setLength()` adds zeros with `APPE`, and shortens a file by storing again the part that
-  stays. FileChannels for reading and writing (and `map()` in `PRIVATE`/`READ_WRITE`) work through it. See the
+  `REST` and `RETR`; one in the middle of a file is written with `REST` and `STOR`, only when the new connection
+  property `storeAtOffset` (`setStoreAtOffset(true)`, off by default) says the server stores in place there (servers
+  differ: some refuse, some replace the file, some add to it). After every write the file's size is checked, so a
+  server that didn't write in place is reported. A chunk at the end is added with `APPE`; `setLength()` adds zeros
+  with `APPE`, and shortens a file by storing again the part that stays. FileChannels for reading and writing (and `map()` in `PRIVATE`/`READ_WRITE`) work through it. See the
   README, "Random access".
 - `supportedStreamOptions()` includes `CHUNK_SIZE` (the random access chunk size).
 - File locks (`lock()`, `tryLock()`, see parley-files). FTP has no locks of its own, so they reach this
