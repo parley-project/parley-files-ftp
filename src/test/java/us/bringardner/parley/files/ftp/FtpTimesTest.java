@@ -64,8 +64,8 @@ public class FtpTimesTest {
 		Files.write(p, new byte[] {1, 2, 3});
 		FileSource f = factory.createFileSource("/m.txt");
 		assertTrue(f.setLastModifiedTime(T + 999));
-		assertEquals(T, Files.getLastModifiedTime(p).toMillis(), "whole seconds");
-		assertTrue(factory.getFtpClient().getDialog().contains("MFMT 20020717210715 /m.txt"), factory.getFtpClient().getDialog());
+		assertEquals(T + 999, Files.getLastModifiedTime(p).toMillis(), "with milliseconds");
+		assertTrue(factory.getFtpClient().getDialog().contains("MFMT 20020717210715.999 /m.txt"), factory.getFtpClient().getDialog());
 		assertTrue(f.setLastModified(T + 60000));
 		assertEquals(T + 60000, Files.getLastModifiedTime(p).toMillis());
 	}

@@ -75,7 +75,7 @@ for reading and writing, which needs random access (below).
 ## Times
 
 `setLastModifiedTime()` / `setLastModified()` use `MFMT` (draft-somers-ftp-mfxx) when the server lists it in `FEAT`
-(FileZilla Server, ProFTPD, parley's `FtpServer` and others), else parley's own `SITE` command; whole seconds.
+(FileZilla Server, ProFTPD, parley's `FtpServer` and others), else parley's own `SITE` command; with milliseconds when the server takes them, else whole seconds.
 `setCreateTime()` uses `MFCT` (or `MFF Create=`) where the server and its file system can set one. FTP has no way to
 set the access time, so `setLastAccessTime()` is false.
 
