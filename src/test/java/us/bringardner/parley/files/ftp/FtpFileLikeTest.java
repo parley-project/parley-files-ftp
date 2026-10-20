@@ -38,6 +38,8 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		server = new FtpServer();
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpFileLikePort", "8025")));
+		// random access writes a chunk in the middle with REST and STOR, which must write in place
+		server.setStoreAtOffset(true);
 		server.getLogger().setLevel(Level.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
@@ -52,6 +54,7 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		prop.setProperty(FtpFileSourceFactory.PROP_HOST, "localhost");
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
+		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "true");
 		factory = new FtpFileSourceFactory();
 		factory.getLogger().setLevel(Level.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
@@ -119,14 +122,14 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 	}
 
 	/**
-	 * Not here: a random access stream checks canWrite() when it is opened "rw", and the embedded
-	 * server only lets "ftp" in while the files belong to whoever runs the tests, so canWrite() is
-	 * judged from the "other" bits and the stream refuses files a RandomAccessFile opens.
-	 * FtpRandomAccessTest tests FtpRandomAccessIoController against RandomAccessFile instead.
+	 * Random access reads a chunk with REST and RETR and writes one in the middle with REST and STOR,
+	 * which this server writes in place (setStoreAtOffset, and storeAtOffset on the connection). The
+	 * controller checks the file on the server when it opens it, so the stream doesn't refuse it from
+	 * canWrite(), which for the "ftp" login is judged from the files' "other" bits.
 	 */
 	@Override
 	protected boolean supportsRandomAccess() {
-		return false;
+		return true;
 	}
 
 	/** MDTM and MLST are read here as whole seconds, and SITE modDate is given in seconds. */

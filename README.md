@@ -116,8 +116,10 @@ server; their sizes are checked too.
   where it is.
 - Nothing is locked or atomic: a chunk is stored when it is saved, a transfer that breaks leaves what arrived, and
   changes another client makes meanwhile can be overwritten.
-- The stream checks `canWrite()` when it is opened `rw`. Over FTP that is judged from the permissions in the listing
-  for the user who logged in (owner, group or other), which isn't always what the server lets that user do.
+- Opening checks the file on the server (a directory, a file missing in `r` mode, one that can't be created), not
+  `canRead()`/`canWrite()`: over FTP those are guessed from the listing's owner and permission bits, which often aren't
+  what the server lets the login do (an anonymous or virtual user isn't the owner the listing shows). A read or write
+  the server refuses fails when it is done.
 
 ## Tests
 

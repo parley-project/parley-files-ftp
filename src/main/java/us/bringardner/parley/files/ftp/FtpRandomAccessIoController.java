@@ -127,6 +127,18 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 		// server lets this user do, so a file that can't be written fails when a chunk is saved
 	}
 
+	/**
+	 * true: the constructor checked the file on the server (a directory, a file missing in "r" mode, one
+	 * that can't be created), so FileSourceRandomAccessStream doesn't check canRead()/canWrite() again.
+	 * Those are guessed from the listing's owner and permission bits, which over FTP often aren't what the
+	 * server lets this login do (an anonymous or virtual user isn't the owner the listing shows). A read
+	 * or write the server refuses fails when it is done.
+	 */
+	@Override
+	public boolean checksAccessOnOpen() {
+		return true;
+	}
+
 	/** @return the chunk size this stream reads and writes in */
 	public int getChunkSize() {
 		return chunkSize;

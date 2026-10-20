@@ -30,9 +30,6 @@ import us.bringardner.parley.ftp.server.FtpServer;
  * on a local file. Small chunks, so most writes land in the middle of the file. A write in the middle is
  * done only when the factory says the server stores at an offset; a server that refuses leaves the file as
  * it was, and one that replaces or adds to the file instead is caught by the size check.
- * <p>
- * The controller is used directly: FileSourceRandomAccessStream checks canWrite() when it is opened
- * "rw", which for the embedded server's anonymous login is judged from the files' "other" bits.
  */
 public class FtpRandomAccessTest {
 
@@ -307,6 +304,31 @@ public class FtpRandomAccessTest {
 			assertTrue(e.getMessage().contains(FtpFileSourceFactory.PROP_STORE_AT_OFFSET), e.getMessage());
 			closeQuietly(io);
 		}
+	}
+
+	/**
+	 * Through the stream: the anonymous login isn't the files' owner, so canWrite() says false (from the
+	 * "other" bits of a rw-r--r-- file), but the controller checked the file itself and the stream opens.
+	 */
+	@Test
+	void theStreamOpensAFileCanWriteGuessesWrong() throws Exception {
+		Path p = root.resolve("guess.bin");
+		Files.write(p, bytes(300, 8));
+		try {
+			Files.setPosixFilePermissions(p, java.nio.file.attribute.PosixFilePermissions.fromString("rw-r--r--"));
+		} catch (UnsupportedOperationException e) {
+			org.junit.jupiter.api.Assumptions.abort("no POSIX permissions here");
+		}
+		us.bringardner.parley.files.FileSource f = factory.createFileSource("/guess.bin");
+		org.junit.jupiter.api.Assumptions.assumeFalse(f.canWrite(), "the login owns the files here");
+		try (us.bringardner.parley.files.IRandomAccessStream s = f.getRandomAccessStream("rw")) {
+			s.seek(100);
+			s.write(new byte[] {1, 2, 3});
+		}
+		byte[] got = Files.readAllBytes(p);
+		assertEquals(300, got.length);
+		assertEquals(1, got[100]);
+		assertEquals(3, got[102]);
 	}
 
 	@Test

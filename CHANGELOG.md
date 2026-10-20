@@ -4,7 +4,8 @@
 
 Needs parley-files 1.1.0.
 
-Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, bufferSize)`).
+Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, bufferSize)`) and parley-files 1.1.0
+(`IRandomAccessIoController.checksAccessOnOpen()`).
 
 ### Added
 
