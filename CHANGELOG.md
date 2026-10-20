@@ -9,6 +9,10 @@ Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, buf
 
 ### Added
 
+- Times: `setLastModifiedTime()` sets the time (it was "not supported"): `MFMT` when the server lists it in `FEAT`,
+  else parley's `SITE` command, as `setLastModified()` did. `setCreateTime()` uses `MFCT`/`MFF Create=`. Needs
+  parley-ftp 1.1.0's `FtpClient.setCreationTime()`. See the README, "Times".
+
 - **Read-write random access** (`getRandomAccessStream(mode)`, `FtpRandomAccessIoController`): chunks are read with
   `REST` and `RETR`; one in the middle of a file is written with `REST` and `STOR`, only when the new connection
   property `storeAtOffset` (`setStoreAtOffset(true)`, off by default) says the server stores in place there (servers
@@ -24,6 +28,8 @@ Needs parley-ftp 1.1.0 (`FtpClient.getOutputStream(path, ascii, startingPos, buf
   JVM only (`getLockScope()` is `PROCESS`). `FtpLockTest` runs parley-files' lock contract over FTP.
 
 ### Changed (no code change needed)
+
+- `setLastAccessTime()` is false: FTP can't set an access time. It used to set the modification time.
 
 - `createNewFile()` appends zero bytes (APPE) instead of storing them (STOR), so a file another client
   created between the check and the store is no longer emptied. It still isn't atomic, which FTP can't

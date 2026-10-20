@@ -1450,24 +1450,28 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		return 0;
 	}
 
+	/**
+	 * MFMT (draft-somers-ftp-mfxx) when the server lists it in FEAT, else parley's SITE command (see
+	 * {@link #setLastModified(long)}); whole seconds.
+	 */
 	@Override
 	public boolean setLastModifiedTime(long time) throws IOException {
-		// Not supported
-		return false;
+		return setLastModified(time);
 	}
 
+	/** FTP has no way to set the time a file was last read */
 	@Override
 	public boolean setLastAccessTime(long time) throws IOException {
-		FtpFile tmp = getTarget();
-		if( tmp != null ) {
-			return tmp.setLastModified(time);
-		}
 		return false;
 	}
 
+	/** MFCT, else MFF Create= (draft-somers-ftp-mfxx), where the server and its file system can */
 	@Override
 	public boolean setCreateTime(long time) throws IOException {
-		// Not supported
+		FtpFile tmp = getTarget();
+		if( tmp != null ) {
+			return tmp.setCreationTime(time);
+		}
 		return false;
 	}
 

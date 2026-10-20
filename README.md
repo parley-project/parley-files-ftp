@@ -72,6 +72,13 @@ an upload when it ends, so what was written can't be read back before the channe
 `READ_ONLY` mode maps a local copy of the region (see parley-files); `PRIVATE` and `READ_WRITE` need a channel open
 for reading and writing, which needs random access (below).
 
+## Times
+
+`setLastModifiedTime()` / `setLastModified()` use `MFMT` (draft-somers-ftp-mfxx) when the server lists it in `FEAT`
+(FileZilla Server, ProFTPD, parley's `FtpServer` and others), else parley's own `SITE` command; whole seconds.
+`setCreateTime()` uses `MFCT` (or `MFF Create=`) where the server and its file system can set one. FTP has no way to
+set the access time, so `setLastAccessTime()` is false.
+
 ## Random access
 
 `getRandomAccessStream(mode)` (`r`, `rw`, `rws`, `rwd`, as `RandomAccessFile`) reads and writes the file in chunks
