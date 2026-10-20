@@ -234,6 +234,16 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return secure;
 	}
 
+	/**
+	 * @return true if the server lists RANG in FEAT (draft-bryan-ftp-range): RANG start end then STOR
+	 * writes exactly those octets in place, so a random access stream writes a chunk anywhere in a
+	 * file without {@link #setStoreAtOffset(boolean)}, and RANG then RETR reads just a chunk.
+	 * @since 1.1.0
+	 */
+	public boolean isRangSupported() throws IOException {
+		return getFtpClient().getFeatResponse().containsKey(us.bringardner.parley.ftp.FTP.RANG);
+	}
+
 	/** A relative path is taken from the server's current directory (PWD). */
 	public FileSource createFileSource(String name) throws IOException {
 		String path = name == null ? "" : name.replace('\\', '/');

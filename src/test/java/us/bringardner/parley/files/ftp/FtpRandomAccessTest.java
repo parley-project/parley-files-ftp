@@ -25,9 +25,10 @@ import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
- * FtpRandomAccessIoController: chunks read with REST and RETR and written with REST and STOR, against
- * parley's FtpServer with setStoreAtOffset(true), compared with java.io.RandomAccessFile doing the same
- * on a local file. Small chunks, so most writes land in the middle of the file. A write in the middle is
+ * FtpRandomAccessIoController: chunks read with RANG (or REST) and RETR and written with RANG then STOR,
+ * or without RANG with REST and STOR against parley's FtpServer with setStoreAtOffset(true), compared with
+ * java.io.RandomAccessFile doing the same on a local file. parley's FtpServer has RANG; "without RANG" is
+ * played by a file that says the server hasn't. Small chunks, so most writes land in the middle of the file. A write in the middle is
  * done only when the factory says the server stores at an offset; a server that refuses leaves the file as
  * it was, and one that replaces or adds to the file instead is caught by the size check.
  */
@@ -97,8 +98,25 @@ public class FtpRandomAccessTest {
 		}
 	}
 
+	/** Without RANG: REST and STOR, as with a server that hasn't RANG. */
 	private static FtpRandomAccessIoController open(FtpFileSourceFactory f, String name, String mode) throws IOException {
-		return new FtpRandomAccessIoController((FtpFileSource) f.createFileSource("/" + name), mode, CHUNK);
+		return open(f, name, mode, false);
+	}
+
+	private static FtpRandomAccessIoController open(FtpFileSourceFactory f, String name, String mode, boolean rang) throws IOException {
+		FtpFileSource file = rang ? (FtpFileSource) f.createFileSource("/" + name) : noRang("/" + name, f);
+		return new FtpRandomAccessIoController(file, mode, CHUNK);
+	}
+
+	private static FtpFileSource noRang(String path, FtpFileSourceFactory f) throws IOException {
+		return new FtpFileSource(path, f) {
+			private static final long serialVersionUID = 1L;
+
+			@Override
+			boolean isRangSupported() {
+				return false;
+			}
+		};
 	}
 
 	private static byte[] bytes(int n, long seed) {
@@ -172,15 +190,19 @@ public class FtpRandomAccessTest {
 		assertEquals(0, Files.size(root.resolve("len.bin")));
 	}
 
-	/** Random writes, reads and setLength, the same as RandomAccessFile on a local copy. */
-	@Test
-	void actsLikeRandomAccessFile() throws Exception {
+	/** Random writes, reads and setLength, the same as RandomAccessFile on a local copy, with RANG and without. */
+	@org.junit.jupiter.params.ParameterizedTest
+	@org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+	void actsLikeRandomAccessFile(boolean rang) throws Exception {
 		byte[] start = bytes(777, 4);
-		Files.write(root.resolve("same.bin"), start);
-		Path oracle = dir.resolve("oracle.bin");
+		// with RANG it needs no storeAtOffset: the server and factory that don't
+		FtpFileSourceFactory f = rang ? offFactory : factory;
+		Path base = rang ? offRoot : root;
+		Files.write(base.resolve("same.bin"), start);
+		Path oracle = dir.resolve("oracle-" + rang + ".bin");
 		Files.write(oracle, start);
 		Random r = new Random(42);
-		try (FtpRandomAccessIoController io = open(factory, "same.bin", "rw");
+		try (FtpRandomAccessIoController io = open(f, "same.bin", "rw", rang);
 				RandomAccessFile raf = new RandomAccessFile(oracle.toFile(), "rw")) {
 			for(int i = 0; i < 200; i++) {
 				int op = r.nextInt(10);
@@ -207,7 +229,30 @@ public class FtpRandomAccessTest {
 				assertEquals(raf.length(), io.length(), "length" + step);
 			}
 		}
-		assertArrayEquals(Files.readAllBytes(oracle), Files.readAllBytes(root.resolve("same.bin")));
+		assertArrayEquals(Files.readAllBytes(oracle), Files.readAllBytes(base.resolve("same.bin")));
+	}
+
+	/** RANG then STOR writes in place anywhere, with no storeAtOffset on the server or the factory. */
+	@Test
+	void withRangWritesInPlaceWithoutStoreAtOffset() throws Exception {
+		assertTrue(offFactory.isRangSupported(), "parley's FtpServer has RANG");
+		byte[] data = bytes(1000, 9);
+		Files.write(offRoot.resolve("rang.bin"), data);
+		try (FtpRandomAccessIoController io = open(offFactory, "rang.bin", "rw", true)) {
+			io.write(500, new byte[] {1, 2, 3}, 0, 3);   // middle
+			io.write(5, (byte) 9);                      // chunk 0: in place, nothing stored again
+			io.write(990, new byte[20], 0, 20);         // over the end: it grows
+			assertArrayEquals(new byte[] {1, 2, 3}, read(io, 500, 3));
+		}
+		byte[] expect = Arrays.copyOf(data, 1010);
+		expect[500] = 1; expect[501] = 2; expect[502] = 3;
+		expect[5] = 9;
+		Arrays.fill(expect, 990, 1010, (byte) 0);
+		assertArrayEquals(expect, Files.readAllBytes(offRoot.resolve("rang.bin")));
+		try (FtpRandomAccessIoController io = open(offFactory, "rang.bin", "r", true)) {
+			assertArrayEquals(Arrays.copyOfRange(expect, 900, 1000), read(io, 900, 100));
+			assertArrayEquals(expect, read(io, 0, 1010));
+		}
 	}
 
 	@Test
@@ -290,6 +335,11 @@ public class FtpRandomAccessTest {
 			Files.write(root.resolve(name), data);
 			FtpFileSource liar = new FtpFileSource("/" + name, factory) {
 				private static final long serialVersionUID = 1L;
+
+				@Override
+				boolean isRangSupported() {
+					return false;
+				}
 
 				@Override
 				java.io.OutputStream getOutputStreamAt(long position, us.bringardner.parley.files.StreamOptions options) throws IOException {
