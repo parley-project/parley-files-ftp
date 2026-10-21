@@ -31,14 +31,14 @@ import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
  * The buffer size is for programmers: a per-connection value (the connect property
- * "bufferSize", or setBufferSize), else the JVM default ftp.bufferSize, else the
+ * "bufferSize", or setBufferSize), else the JVM default parley.files.ftp.bufferSize, else the
  * factory's own default. No dialog shows it, it isn't written into connections that
  * didn't set it, and a value that can't be used never stops a connection.
  */
 public class FtpBufferSizeTest {
 
 	private static final String KEY = FtpFileSourceFactory.PROP_BUFFER_SIZE;
-	private static final String SYSTEM_PROPERTY = FtpFileSourceFactory.FACTORY_ID + "." + KEY;
+	private static final String SYSTEM_PROPERTY = FtpFileSourceFactory.SYSTEM_PROPERTY_PREFIX + "." + KEY;
 
 	@AfterEach
 	void clearSystemProperty() {
