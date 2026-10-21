@@ -108,7 +108,7 @@ and servers differ:
 
 | Server | `REST n` then `STOR` |
 |---|---|
-| parley-ftp `FtpServer` | Refused unless `setStoreAtOffset(true)` (`JFtp.storeAtOffset`); then writes in place |
+| parley-ftp `FtpServer` | Refused unless `setStoreAtOffset(true)` (`parley.ftp.storeAtOffset`); then writes in place |
 | ProFTPD | `AllowStoreRestart`; its manual warns it lets clients "corrupt or increase the size of previously stored files", but doesn't say how it writes. Not verified here |
 | vsftpd | Believed to write in place. Not verified here |
 | IIS | Reported to keep only the new data (the file is replaced) |

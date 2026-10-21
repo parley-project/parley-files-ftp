@@ -124,6 +124,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 */
 	private static final long serialVersionUID = 1L;
 	public static final String FACTORY_ID = "ftp";
+	/** The start of the system properties that give defaults for the connection settings (parley.files.ftp.host ...). */
+	public static final String SYSTEM_PROPERTY_PREFIX = "parley.files.ftp";
 	public static final String PROP_HOST = "host";
 	public static final String PROP_PORT = "port";
 	public static final String PROP_USER = "user";
@@ -139,7 +141,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 * shows it (the forms carry properties they don't describe through unchanged), and
 	 * {@link #getConnectProperties()} only has it when it was set, so saved connections
 	 * keep following the default. The JVM-wide default is the system property
-	 * "ftp.bufferSize", like "ftp.host" and "ftp.port".
+	 * "parley.files.ftp.bufferSize", like "parley.files.ftp.host" and "parley.files.ftp.port".
 	 */
 	public static final String PROP_BUFFER_SIZE = "bufferSize";
 	/**
@@ -407,8 +409,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	// ---- connections for streams
 
-	/** The system property for {@link #getAttributeCacheTtl()}, like "ftp.host" and "ftp.bufferSize". */
-	public static final String SYSTEM_PROPERTY_ATTRIBUTE_CACHE_TTL = FACTORY_ID + ".attributeCacheTtl";
+	/** The system property for {@link #getAttributeCacheTtl()}, like "parley.files.ftp.host" and "parley.files.ftp.bufferSize". */
+	public static final String SYSTEM_PROPERTY_ATTRIBUTE_CACHE_TTL = SYSTEM_PROPERTY_PREFIX + ".attributeCacheTtl";
 	/** What a FileSource remembers of a file or a listing is trusted for this long (ms) unless set. */
 	public static final long DEFAULT_ATTRIBUTE_CACHE_TTL = 2000;
 
@@ -421,7 +423,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 * change made by someone else is seen. 0 asks every time, like a java.io.File.
 	 * <p>
 	 * The value set with {@link #setAttributeCacheTtl(long)}, else the system property
-	 * ftp.attributeCacheTtl, else {@link #DEFAULT_ATTRIBUTE_CACHE_TTL}.
+	 * parley.files.ftp.attributeCacheTtl, else {@link #DEFAULT_ATTRIBUTE_CACHE_TTL}.
 	 */
 	public long getAttributeCacheTtl() {
 		Long set = attributeCacheTtl;
@@ -612,11 +614,11 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return (int) Math.max(MIN_BUFFER_SIZE, Math.min(MAX_BUFFER_SIZE, size));
 	}
 
-	/** The size that was set, else the system property ftp.bufferSize, else null (the client's default). */
+	/** The size that was set, else the system property parley.files.ftp.bufferSize, else null (the client's default). */
 	private Integer configuredBufferSize() {
 		Integer ret = bufferSize;
 		if( ret == null ) {
-			String v = System.getProperty(FACTORY_ID+"."+PROP_BUFFER_SIZE);
+			String v = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_BUFFER_SIZE);
 			if( v != null && !v.trim().isEmpty()) {
 				try {
 					ret = clampBufferSize(Long.parseLong(v.trim()));
@@ -631,7 +633,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	/**
 	 * The size of the buffers that carry transfer data (and what a copy loop should
 	 * read and write at a time): the one set with {@link #setBufferSize(int)} or
-	 * {@link #PROP_BUFFER_SIZE}, else the system property ftp.bufferSize, else
+	 * {@link #PROP_BUFFER_SIZE}, else the system property parley.files.ftp.bufferSize, else
 	 * {@link #DEFAULT_BUFFER_SIZE}. A connection that is already open reports its own.
 	 */
 	public int getBufferSize() {
@@ -665,7 +667,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		if( host == null ) {
 			synchronized (this) {
 				if( host == null ) {
-					host = System.getProperty(FACTORY_ID+"."+PROP_HOST);
+					host = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_HOST);
 				}
 			}            
 		}
@@ -681,7 +683,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		if( passwd == null ) {
 			synchronized (this) {
 				if( passwd == null ) {
-					passwd = System.getProperty(FACTORY_ID+"."+PROP_PSWD);		
+					passwd = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_PSWD);		
 				}
 			}            
 		}
@@ -698,7 +700,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		if( port == -1 ) {
 			synchronized (this) {
 				if( port == -1 ) {
-					String tmp = System.getProperty(FACTORY_ID+"."+PROP_PORT);
+					String tmp = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_PORT);
 					if( tmp != null ) {
 						try {
 							port = Integer.parseInt(tmp);
@@ -726,7 +728,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		if( user == null ) {
 			synchronized (this) {
 				if( user == null ) {
-					user = System.getProperty(FACTORY_ID+"."+PROP_USER);		
+					user = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_USER);		
 				}
 			}            
 		}

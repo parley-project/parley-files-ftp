@@ -30,7 +30,7 @@ final class FtpTestServer implements TestServerController {
 	 * and server under test (FileSourceTestSupport stops it after the class).
 	 */
 	static FtpTestServer startAndConnect() throws IOException {
-		System.setProperty("ILogger", ParleyLogger.class.getName());
+		System.setProperty(us.bringardner.parley.core.BaseObject.PROPERTY_LOGGER, ParleyLogger.class.getName());
 		FtpTestServer server = new FtpTestServer();
 		FileSourceTestSupport.startServer(server, TIMEOUT);
 

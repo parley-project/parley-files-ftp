@@ -1,5 +1,13 @@
 # Changelog
 
+## parley-files-ftp 2.0.0 (unreleased)
+
+### Changed (needs a configuration change)
+
+- **Property names** (Parley 2.0.0): the JVM-wide defaults of the connection settings are
+  `parley.files.ftp.host`, `.port`, `.user`, `.password`, `.bufferSize` and `.attributeCacheTtl` (were `ftp.host` ...;
+  `FtpFileSourceFactory.SYSTEM_PROPERTY_PREFIX`).
+
 ## parley-files-ftp 1.1.0 (unreleased)
 
 Needs parley-files 1.1.0.
