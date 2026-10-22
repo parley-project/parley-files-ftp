@@ -115,7 +115,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 */
 	public FtpFileSource(String parent, String name, FtpFileSourceFactory factory) {
 		this.factory = factory;
-		initPath((parent == null ? "" : parent)+FtpClient.SEPERATOR+name);
+		initPath((parent == null ? "" : parent)+FtpClient.SEPARATOR+name);
 	}
 
 
@@ -126,7 +126,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public FtpFileSource(String parent,FtpFile file, FtpFileSourceFactory factory) {
 		this.target = file;
 		this.factory = factory;
-		initPath((parent == null ? "" : parent)+FtpClient.SEPERATOR+file.getName());
+		initPath((parent == null ? "" : parent)+FtpClient.SEPARATOR+file.getName());
 	}
 
 	/**
@@ -137,7 +137,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public FtpFileSource(FtpFileSource parentFile, String path) {
 		this.factory = (FtpFileSourceFactory) parentFile.getFileSourceFactory();
 		String parentPath = parentFile.getAbsolutePath();
-		initPath(parentPath+FtpClient.SEPERATOR+path);
+		initPath(parentPath+FtpClient.SEPARATOR+path);
 		if( parentPath.equals(parent)) {
 			// a plain name: keep the parent object (otherwise it's made when asked for)
 			this.parentFile = parentFile;
@@ -157,7 +157,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public FtpFileSource(FtpFileSource p, FtpFile t,			FtpFileSourceFactory f) {
 		this.target = t;
 		this.factory = f;
-		initPath(p.getAbsolutePath()+FtpClient.SEPERATOR+t.getName());
+		initPath(p.getAbsolutePath()+FtpClient.SEPARATOR+t.getName());
 		this.parentFile = p;
 	}
 
@@ -435,9 +435,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			String nm = getName();
 
 			if( p.equals("/")) {
-				ret = FtpClient.SEPERATOR+nm;
+				ret = FtpClient.SEPARATOR+nm;
 			} else {
-				ret = p+FtpClient.SEPERATOR+nm;
+				ret = p+FtpClient.SEPARATOR+nm;
 			}
 		}
 
@@ -709,9 +709,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		FtpClient client = ((FtpFileSourceFactory)getFileSourceFactory()).getFtpClient();
 		FtpFile ret = null;
 
-		String parent = FtpClient.SEPERATOR;
+		String parent = FtpClient.SEPARATOR;
 		String name = fullPath;
-		int idx = fullPath.lastIndexOf(FtpClient.SEPERATOR_CHAR);
+		int idx = fullPath.lastIndexOf(FtpClient.SEPARATOR_CHAR);
 		if( idx >= 0 ) {
 			parent = fullPath.substring(0,idx);
 			name = fullPath.substring(idx+1);
@@ -1003,18 +1003,18 @@ public class FtpFileSource extends BaseObject implements FileSource {
 				parts.addLast(part);
 			}
 		}
-		return FtpClient.SEPERATOR+String.join(FtpClient.SEPERATOR, parts);
+		return FtpClient.SEPARATOR+String.join(FtpClient.SEPARATOR, parts);
 	}
 
 	/** Sets parent and name from the normalized path; the root has name "/" and no parent. */
 	private void initPath(String path) {
 		String p = normalize(path);
-		int idx = p.lastIndexOf(FtpClient.SEPERATOR_CHAR);
-		if( p.equals(FtpClient.SEPERATOR)) {
+		int idx = p.lastIndexOf(FtpClient.SEPARATOR_CHAR);
+		if( p.equals(FtpClient.SEPARATOR)) {
 			parent = null;
-			name = FtpClient.SEPERATOR;
+			name = FtpClient.SEPARATOR;
 		} else {
-			parent = idx == 0 ? FtpClient.SEPERATOR : p.substring(0, idx);
+			parent = idx == 0 ? FtpClient.SEPARATOR : p.substring(0, idx);
 			name = p.substring(idx+1);
 		}
 	}
