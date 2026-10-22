@@ -306,7 +306,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			 * to handle some of these issues.
 			 */
 			if(list.length == 1  && ret[0].isFile() ) {
-				int idx = dirPath.lastIndexOf(FtpClient.SEPERATOR_CHAR);
+				int idx = dirPath.lastIndexOf(FtpClient.SEPARATOR_CHAR);
 				if(idx >= 0 ) {
 					String fileName = dirPath.substring(idx+1);
 					if(fileName.equals(ret[0].getName())) {
