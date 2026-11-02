@@ -4,9 +4,11 @@
 
 ### Changed (needs a configuration change)
 
-- **Property names** (Parley 2.0.0): the JVM-wide defaults of the connection settings are
-  `parley.files.ftp.host`, `.port`, `.user`, `.password`, `.bufferSize` and `.attributeCacheTtl` (were `ftp.host` ...;
-  `FtpFileSourceFactory.SYSTEM_PROPERTY_PREFIX`).
+- **A connection's settings come only from the connection** (To-Do 2.19, 7.5): 1.x's JVM-wide defaults `ftp.host`,
+  `ftp.port`, `ftp.user` and `ftp.password` are gone, with no `parley.files.ftp.*` replacement (a password in a system
+  property shows in process listings). The JVM-wide tuning defaults are `parley.files.ftp.bufferSize` and
+  `parley.files.ftp.attributeCacheTtl`, now a duration (`2s`) (were `ftp.bufferSize`, `ftp.attributeCacheTtl`).
+- **The `timeout` connection setting is a duration** (`4s`, `500ms`; a bare number is ms), and saved as one.
 
 ## parley-files-ftp 1.1.0 (unreleased)
 
