@@ -38,7 +38,7 @@ public class FtpThreadSafeCopyTest {
 		Properties p = c.getConnectProperties();
 		assertEquals("true", p.getProperty(FtpFileSourceFactory.PROP_SECURE), "secure");
 		assertEquals("billing", p.getProperty(FtpFileSourceFactory.PROP_ACCT), "account");
-		assertEquals("9000", p.getProperty(FtpFileSourceFactory.PROP_TIMEOUT), "timeout");
+		assertEquals("9s", p.getProperty(FtpFileSourceFactory.PROP_TIMEOUT), "timeout, as a duration");
 		assertEquals("131072", p.getProperty(FtpFileSourceFactory.PROP_BUFFER_SIZE), "buffer size");
 	}
 
@@ -74,7 +74,7 @@ public class FtpThreadSafeCopyTest {
 		c.setTimeout(1);
 		c.setSecure(true);
 		c.setBufferSize(32 * 1024);
-		assertEquals("9000", f.getConnectProperties().getProperty(FtpFileSourceFactory.PROP_TIMEOUT));
+		assertEquals("9s", f.getConnectProperties().getProperty(FtpFileSourceFactory.PROP_TIMEOUT));
 		assertEquals("false", f.getConnectProperties().getProperty(FtpFileSourceFactory.PROP_SECURE));
 		assertEquals(128 * 1024, f.getBufferSize());
 	}

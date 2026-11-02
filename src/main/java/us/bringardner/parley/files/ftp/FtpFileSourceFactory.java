@@ -124,7 +124,11 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 */
 	private static final long serialVersionUID = 1L;
 	public static final String FACTORY_ID = "ftp";
-	/** The start of the system properties that give defaults for the connection settings (parley.files.ftp.host ...). */
+	/**
+	 * The start of the JVM-wide defaults for how transfers are tuned (parley.files.ftp.bufferSize,
+	 * parley.files.ftp.attributeCacheTtl). A connection's own settings (host, port, user, password ...)
+	 * come only from the connection.
+	 */
 	public static final String SYSTEM_PROPERTY_PREFIX = "parley.files.ftp";
 	public static final String PROP_HOST = "host";
 	public static final String PROP_PORT = "port";
@@ -141,7 +145,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 * shows it (the forms carry properties they don't describe through unchanged), and
 	 * {@link #getConnectProperties()} only has it when it was set, so saved connections
 	 * keep following the default. The JVM-wide default is the system property
-	 * "parley.files.ftp.bufferSize", like "parley.files.ftp.host" and "parley.files.ftp.port".
+	 * "parley.files.ftp.bufferSize".
 	 */
 	public static final String PROP_BUFFER_SIZE = "bufferSize";
 	/**
@@ -423,7 +427,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	 * change made by someone else is seen. 0 asks every time, like a java.io.File.
 	 * <p>
 	 * The value set with {@link #setAttributeCacheTtl(long)}, else the system property
-	 * parley.files.ftp.attributeCacheTtl, else {@link #DEFAULT_ATTRIBUTE_CACHE_TTL}.
+	 * parley.files.ftp.attributeCacheTtl (a duration, 2s), else {@link #DEFAULT_ATTRIBUTE_CACHE_TTL}.
 	 */
 	public long getAttributeCacheTtl() {
 		Long set = attributeCacheTtl;
@@ -433,8 +437,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		String v = System.getProperty(SYSTEM_PROPERTY_ATTRIBUTE_CACHE_TTL);
 		if( v != null && !v.trim().isEmpty() ) {
 			try {
-				return Math.max(0, Long.parseLong(v.trim()));
-			} catch (NumberFormatException e) {
+				return us.bringardner.parley.core.util.Durations.parse(v);
+			} catch (IllegalArgumentException e) {
 				// a bad value uses the default
 			}
 		}
@@ -664,14 +668,6 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	public  String getHost() {
-		if( host == null ) {
-			synchronized (this) {
-				if( host == null ) {
-					host = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_HOST);
-				}
-			}            
-		}
-
 		return host;
 	}
 
@@ -680,14 +676,6 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	public  String getPasswd() {
-		if( passwd == null ) {
-			synchronized (this) {
-				if( passwd == null ) {
-					passwd = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_PSWD);		
-				}
-			}            
-		}
-
 		return passwd;
 	}
 
@@ -697,22 +685,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	public  int getPort() {
-		if( port == -1 ) {
-			synchronized (this) {
-				if( port == -1 ) {
-					String tmp = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_PORT);
-					if( tmp != null ) {
-						try {
-							port = Integer.parseInt(tmp);
-						} catch(Exception ex) {}
-					} else {
-						port = DEFAULT_PORT;
-					}                	
-				}
-			}
-		}
-
-		return port;
+		return port <= 0 ? DEFAULT_PORT : port;
 	}
 
 	public  void setPort(int port) {
@@ -725,14 +698,6 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	public  String getUser() {
-		if( user == null ) {
-			synchronized (this) {
-				if( user == null ) {
-					user = System.getProperty(SYSTEM_PROPERTY_PREFIX+"."+PROP_USER);		
-				}
-			}            
-		}
-
 		return user;
 	}
 
@@ -814,7 +779,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.setProperty(PROP_PSWD, passwd==null?"":passwd);        
 		ret.setProperty(PROP_ACCT, account==null?"":account);
 		ret.setProperty(PROP_SECURE,""+secure);
-		ret.setProperty(PROP_TIMEOUT,""+timeout);
+		ret.setProperty(PROP_TIMEOUT,us.bringardner.parley.core.util.Durations.format(Math.max(0, timeout)));
 		ret.setProperty(PROP_STORE_AT_OFFSET,""+storeAtOffset);
 		Integer buffer = bufferSize;
 		if( buffer != null ) {
@@ -849,7 +814,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 				ConnectionSetting.bool(PROP_SECURE, "Use TLS (FTPS)"),
 				ConnectionSetting.secret(PROP_ACCT, "Account").asAdvanced()
 					.withDescription("RFC 959 ACCT; only some servers use it"),
-				ConnectionSetting.integer(PROP_TIMEOUT, "Timeout (ms)", 0L, null).asAdvanced().withDefault("4000"),
+				ConnectionSetting.duration(PROP_TIMEOUT, "Timeout").asAdvanced().withDefault("4s"),
 				ConnectionSetting.bool(PROP_STORE_AT_OFFSET, "Server stores at a REST offset").asAdvanced()
 					.withDescription("Lets random access write in the middle of a file (REST then STOR). Only for a server known to write in place there."));
 	}
@@ -911,7 +876,14 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setPasswd(prop.getProperty(PROP_PSWD));
 			setAccount(prop.getProperty(PROP_ACCT));
 			secure = prop.getProperty(PROP_SECURE, "true").equals("true");
-			timeout = Integer.parseInt(prop.getProperty(PROP_TIMEOUT, ""+timeout));
+			String t = prop.getProperty(PROP_TIMEOUT);
+			if( t != null && !t.trim().isEmpty() ) {
+				try {
+					timeout = us.bringardner.parley.core.util.Durations.toIntMillis(us.bringardner.parley.core.util.Durations.parse(t));
+				} catch (IllegalArgumentException e) {
+					logError("Ignoring "+PROP_TIMEOUT+": "+e.getMessage());
+				}
+			}
 			storeAtOffset = "true".equalsIgnoreCase(prop.getProperty(PROP_STORE_AT_OFFSET, "false").trim());
 			String buffer = prop.getProperty(PROP_BUFFER_SIZE);
 			if( buffer != null && !buffer.trim().isEmpty()) {

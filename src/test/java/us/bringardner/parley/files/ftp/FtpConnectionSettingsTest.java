@@ -43,7 +43,7 @@ public class FtpConnectionSettingsTest {
 		Properties p = new Properties();
 		p.setProperty(FtpFileSourceFactory.PROP_PORT, "x");
 		p.setProperty(FtpFileSourceFactory.PROP_TIMEOUT, "-5");
-		assertEquals(List.of("Host is required", "Port must be a whole number", "Timeout (ms) must be at least 0"),
+		assertEquals(List.of("Host is required", "Port must be a whole number", "Timeout must be a duration (30s, 500ms, 5m)"),
 				f.validateConnection(p));
 	}
 
@@ -54,7 +54,7 @@ public class FtpConnectionSettingsTest {
 		p.setProperty(FtpFileSourceFactory.PROP_HOST, "example.org");
 		p.setProperty(FtpFileSourceFactory.PROP_TIMEOUT, "9000");
 		f.setConnectionProperties(p);
-		assertEquals("9000", f.getConnectProperties().getProperty(FtpFileSourceFactory.PROP_TIMEOUT));
+		assertEquals("9s", f.getConnectProperties().getProperty(FtpFileSourceFactory.PROP_TIMEOUT), "saved as a duration");
 		assertTrue(f.getConnectionSettings().size() >= f.getConnectProperties().size());
 	}
 }
