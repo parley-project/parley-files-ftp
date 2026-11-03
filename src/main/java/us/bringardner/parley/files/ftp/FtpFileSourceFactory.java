@@ -188,7 +188,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	private int timeout = 4000;
 	/** null: the JVM default, else DEFAULT_BUFFER_SIZE. Only a value that was set is saved. */
 	private volatile Integer bufferSize;
-	private boolean secure = false;
+	private boolean secure = defaultSecure();
 	/** See {@link #setStoreAtOffset(boolean)}. */
 	private volatile boolean storeAtOffset = false;
 	private FileSource[] roots;
@@ -208,6 +208,14 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 
+
+	/**
+	 * Whether a connection of this factory's type is secure (FTPS) when nothing says otherwise: a new
+	 * factory, or connection properties without {@value #PROP_SECURE}. False for ftp, true for ftps.
+	 */
+	protected boolean defaultSecure() {
+		return false;
+	}
 
 	public void setSecure(boolean secure) {
 		this.secure = secure;
@@ -832,7 +840,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setUser(null);
 			setPasswd(null);
 			setAccount(null);
-			secure = false;
+			secure = defaultSecure();
 		} else {
 			try {
 				FileSourceUri fsurl = new FileSourceUri(url.toURI());				
@@ -861,7 +869,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setPasswd(null);
 			setAccount(null);
 			setPort(DEFAULT_PORT);
-			secure = false;
+			secure = defaultSecure();
 			storeAtOffset = false;
 			bufferSize = null;
 		} else {
@@ -875,7 +883,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setUser(prop.getProperty(PROP_USER));
 			setPasswd(prop.getProperty(PROP_PSWD));
 			setAccount(prop.getProperty(PROP_ACCT));
-			secure = prop.getProperty(PROP_SECURE, "true").equals("true");
+			secure = Boolean.parseBoolean(prop.getProperty(PROP_SECURE, ""+defaultSecure()).trim());
 			String t = prop.getProperty(PROP_TIMEOUT);
 			if( t != null && !t.trim().isEmpty() ) {
 				try {
