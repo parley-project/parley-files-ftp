@@ -4,6 +4,10 @@
 
 ### Changed (needs a configuration change)
 
+- **`secure` defaults to the factory's type** (To-Do 7.6): false for `ftp`, true for `ftps`, both for a new factory and
+  for connection properties that leave `secure` out (1.x took a missing `secure` as true even for `ftp`, while a new
+  `ftp` factory was false). A plain `ftp` connection that relied on the missing setting meaning FTPS now needs
+  `secure=true`, or the `ftps` type.
 - **A connection's settings come only from the connection** (To-Do 2.19, 7.5): 1.x's JVM-wide defaults `ftp.host`,
   `ftp.port`, `ftp.user` and `ftp.password` are gone, with no `parley.files.ftp.*` replacement (a password in a system
   property shows in process listings). The JVM-wide tuning defaults are `parley.files.ftp.bufferSize` and

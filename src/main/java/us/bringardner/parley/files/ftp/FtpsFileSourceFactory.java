@@ -17,7 +17,11 @@ public class FtpsFileSourceFactory extends FtpFileSourceFactory {
 
 	public FtpsFileSourceFactory() {
 		super();
-		setSecure(true);
+	}
+
+	@Override
+	protected boolean defaultSecure() {
+		return true;
 	}
 	
 	@Override
