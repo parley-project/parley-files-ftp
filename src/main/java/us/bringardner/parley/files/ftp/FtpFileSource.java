@@ -68,29 +68,42 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	private volatile FtpFile target;
 	/**
-	 * The factory's change count when target and kids_ were filled; -1 before it was looked at.
-	 * A change made through any FileSource of the factory since then drops them.
+	 * The factory's {@link FtpFileSourceFactory#changeStamp()} taken before target and kids_ were
+	 * read: a change made through the factory since then, to this path or a folder it is in (or for
+	 * kids_, to what is in this folder), drops them. Other paths' changes don't.
 	 */
-	private volatile long seenChange = -1;
-	/** When target or kids_ was found: they are trusted for the factory's attribute cache time. */
-	private volatile long cachedAt = System.currentTimeMillis();
+	private volatile long targetStamp;
+	private volatile long kidsStamp;
+	/** When target and kids_ were read: they are trusted for the factory's attribute cache time. */
+	private volatile long targetAt;
+	private volatile long kidsAt;
 
 	private void forgetIfChanged() {
 		// something that was remembered too long ago may have been changed by someone else
-		if( (target != null || kids_ != null)
-				&& System.currentTimeMillis() - cachedAt > factory.getAttributeCacheTtl() ) {
-			target = null;
-			kids_ = null;
-		}
-		long now = factory.getChangeCount();
-		long seen = seenChange;
-		if( seen != now ) {
-			seenChange = now;
-			if( seen != -1 ) {
+		long ttl = factory.getAttributeCacheTtl();
+		long now = System.currentTimeMillis();
+		String path = null;
+		if( target != null ) {
+			path = pathOf(this);
+			if( now - targetAt > ttl || factory.changedSince(path, targetStamp, false) ) {
 				target = null;
+			}
+		}
+		if( kids_ != null ) {
+			if( path == null ) {
+				path = pathOf(this);
+			}
+			if( now - kidsAt > ttl || factory.changedSince(path, kidsStamp, true) ) {
 				kids_ = null;
 			}
 		}
+	}
+
+	/** Sets what is known of this file, read from the server after the factory's stamp was taken. */
+	private void known(FtpFile file, long stamp, long at) {
+		this.targetStamp = stamp;
+		this.targetAt = at;
+		this.target = file;
 	}
 	private volatile FtpFileSource parentFile;
 
@@ -124,8 +137,8 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 * @param factory
 	 */
 	public FtpFileSource(String parent,FtpFile file, FtpFileSourceFactory factory) {
-		this.target = file;
 		this.factory = factory;
+		known(file, factory.changeStamp(), System.currentTimeMillis());
 		initPath((parent == null ? "" : parent)+FtpClient.SEPARATOR+file.getName());
 	}
 
@@ -151,12 +164,12 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	 */
 	public FtpFileSource(FtpFileSource source, FtpFile file) {
 		this(source,file.getName());
-		this.target = file;
+		known(file, factory.changeStamp(), System.currentTimeMillis());
 	}
 
 	public FtpFileSource(FtpFileSource p, FtpFile t,			FtpFileSourceFactory f) {
-		this.target = t;
 		this.factory = f;
+		known(t, f.changeStamp(), System.currentTimeMillis());
 		initPath(p.getAbsolutePath()+FtpClient.SEPARATOR+t.getName());
 		this.parentFile = p;
 	}
@@ -375,7 +388,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			ret = tmp.delete();
 			if( ret ) {
 				target = null;
-				factory.noteChange();
+				factory.noteChange(pathOf(this));
 				FileSource p = getParentFile();
 				if( p != null ) {
 					if (p instanceof FtpFileSource) {
@@ -639,7 +652,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			((FtpFileSource) p).kids_ = null;
 		}
 		target = null;
-		factory.noteChange();
+		factory.noteChange(pathOf(this));
 	}
 
 	public FileSource getParentFile() throws IOException {
@@ -696,8 +709,16 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			synchronized(this) {
 				if(target == null ) {
 					String path = getAbsolutePath();
-					target = createFtpFile(path);
-					cachedAt = System.currentTimeMillis();
+					// a recent listing of the folder it is in, if it has this name
+					FtpFileSourceFactory.RecentListing l = parent == null ? null : factory.recentListing(parent);
+					FtpFile f = l == null ? null : l.get(name);
+					if( f != null && !factory.changedSince(path, l.stamp, false) ) {
+						known(f, l.stamp, l.at);
+					} else {
+						// not there isn't trusted: a LIST may leave out hidden files
+						long stamp = factory.changeStamp();
+						known(createFtpFile(path), stamp, System.currentTimeMillis());
+					}
 				}
 			}
 		}
@@ -846,7 +867,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			if((ret = client.mkDir(getAbsolutePath()))) {
 				// looked up again next time
 				target = null;
-				factory.noteChange();
+				factory.noteChange(pathOf(this));
 				kids_ = null;
 				FileSource p = getParentFile();
 				if (p instanceof FtpFileSource) {
@@ -873,6 +894,13 @@ public class FtpFileSource extends BaseObject implements FileSource {
 			FtpClient client = ((FtpFileSourceFactory)getFileSourceFactory()).getFtpClient();
 			ret = client.mkDirs(path);
 			kids_ = null;
+			target = null;
+			// any folder on the way may be new
+			java.util.List<String> made = new java.util.ArrayList<>();
+			for(String p = normalize(path); !p.equals(FtpClient.SEPARATOR); p = p.substring(0, Math.max(1, p.lastIndexOf(FtpClient.SEPARATOR_CHAR)))) {
+				made.add(p);
+			}
+			factory.noteChange(made.toArray(new String[0]));
 		} catch (IOException ex) {
 			logError("Error in mkdirs",ex);
 		}
@@ -1070,9 +1098,14 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 	}
 
+	/**
+	 * Reads this file again, and (for a folder) its listing; for every FileSource of the factory at
+	 * this path, not only this one. Nothing else is read again.
+	 */
 	public void refresh() throws IOException {
 		target = null;
-		factory.noteChange();
+		kids_ = null;
+		factory.noteListingChange(pathOf(this));
 		getTarget();		
 	}
 
@@ -1093,10 +1126,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 				ret = tmp.renameTo(dest.getAbsolutePath());
 				if( ret ) {
 					target = null;
-					factory.noteChange();
 					kids_ = null;
 					((FtpFileSource) dest).target = null;
-					factory.noteChange();
+					factory.noteChange(pathOf(this), pathOf((FtpFileSource) dest));
 
 					FileSource p  =getParentFile();
 					if (p instanceof FtpFileSource) {
@@ -1127,18 +1159,34 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		if( kids_ == null ) {
 			synchronized (this) {
 				if( kids_ == null ) {
-					if( isDirectory() ) {
-						FtpFile [] list = factory.listFiles(getAbsolutePath());
-						if( list == null ) {
-							kids_ = new FtpFileSource[0];
-						} else {
-							FtpFileSource[] tmp = new FtpFileSource[list.length];
-							for (int idx = 0; idx < list.length; idx++) {
-								tmp[idx] = new FtpFileSource(this,list[idx],factory);
-							}
-							kids_ = tmp;
+					String path = getAbsolutePath();
+					FtpFileSourceFactory.RecentListing recent = factory.recentListing(path);
+					if( recent != null ) {
+						// listed lately (by another FileSource for this folder): no need to ask
+						FtpFileSource[] tmp = new FtpFileSource[recent.files.length];
+						for (int idx = 0; idx < tmp.length; idx++) {
+							tmp[idx] = new FtpFileSource(this,recent.files[idx],factory);
+							tmp[idx].known(recent.files[idx], recent.stamp, recent.at);
 						}
-						cachedAt = System.currentTimeMillis();
+						kidsStamp = recent.stamp;
+						kidsAt = recent.at;
+						kids_ = tmp;
+					} else if( isDirectory() ) {
+						long stamp = factory.changeStamp();
+						FtpFile [] list = factory.listFiles(path);
+						long at = System.currentTimeMillis();
+						if( list != null ) {
+							factory.keepListing(path, list, stamp, at);
+						}
+						FtpFileSource[] tmp = new FtpFileSource[list == null ? 0 : list.length];
+						for (int idx = 0; idx < tmp.length; idx++) {
+							tmp[idx] = new FtpFileSource(this,list[idx],factory);
+							// what the listing said is as old as the listing
+							tmp[idx].known(list[idx], stamp, at);
+						}
+						kidsStamp = stamp;
+						kidsAt = at;
+						kids_ = tmp;
 					}
 				}
 			}
