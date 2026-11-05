@@ -995,9 +995,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 
 		int port = factory.getPort();		 
 		String host = factory.getHost();
-		String portStr = port == FtpFileSourceFactory.DEFAULT_PORT ? "":":"+port;
+		String portStr = port == factory.defaultPort() ? "":":"+port;
 
-		String url = FileSourceFactory.FILE_SOURCE_PROTOCOL+"://"+user+":"+pw+"@"+host+portStr+path+"?"+FileSourceFactory.QUERY_STRING_SOURCE_TYPE+"="+FtpFileSourceFactory.FACTORY_ID;
+		String url = FileSourceFactory.FILE_SOURCE_PROTOCOL+"://"+user+":"+pw+"@"+host+portStr+path+"?"+FileSourceFactory.QUERY_STRING_SOURCE_TYPE+"="+factory.getTypeId();
 
 		ret = new URL(url);
 

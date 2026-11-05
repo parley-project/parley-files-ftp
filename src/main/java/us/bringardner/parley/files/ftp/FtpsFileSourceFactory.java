@@ -1,7 +1,9 @@
 package us.bringardner.parley.files.ftp;
 
 /**
- * FileSource factory for FTPS servers: {@link FtpFileSourceFactory} over TLS. Locks, atomic create and FileChannel behave as for FTP.
+ * FileSource factory for FTPS servers with implicit TLS: {@link FtpFileSourceFactory} with TLS from the
+ * first byte, on port 990 unless another is given. For explicit TLS (AUTH TLS, usually on port 21) use
+ * the ftp type with secure set. Locks, atomic create and FileChannel behave as for FTP.
  * <p>
  * <h2>Locks, atomic create and FileChannel</h2>
  * <ul>
@@ -21,6 +23,18 @@ public class FtpsFileSourceFactory extends FtpFileSourceFactory {
 
 	@Override
 	protected boolean defaultSecure() {
+		return true;
+	}
+
+	/** Implicit TLS, on port 990 unless another is given. */
+	@Override
+	protected boolean implicitTls() {
+		return true;
+	}
+
+	/** Always: an ftps connection is TLS from the start, whatever secure says. */
+	@Override
+	public boolean isSecure() {
 		return true;
 	}
 	
