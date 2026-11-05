@@ -13,6 +13,15 @@
   property shows in process listings). The JVM-wide tuning defaults are `parley.files.ftp.bufferSize` and
   `parley.files.ftp.attributeCacheTtl`, now a duration (`2s`) (were `ftp.bufferSize`, `ftp.attributeCacheTtl`).
 - **The `timeout` connection setting is a duration** (`4s`, `500ms`; a bare number is ms), and saved as one.
+- **`ftp` with `secure` is explicit TLS; `ftps` is implicit TLS on port 990.** An `ftp` connection with `secure=true`
+  connects in plain text and sends `AUTH TLS` before it logs in, and doesn't log in if the server refuses (the
+  password is never sent in plain text); it stays on port 21. An `ftps` connection is TLS from the first byte, always
+  (`secure` is ignored and saved as `true`, and the connection form has no TLS box for it), and its default port is
+  990 (`FtpFileSourceFactory.DEFAULT_IMPLICIT_TLS_PORT`, `defaultPort()`). Both types used to take `secure=true` as
+  implicit TLS on port 21 unless a port was given, which a server that starts in plain text (most do) answers with
+  "Unsupported or unrecognized SSL message", and the client never sent `AUTH TLS` (`setRequestSecure(false)`, a TODO).
+  A saved `ftp` connection with `secure=true` that went to an implicit TLS port (990) needs the `ftps` type now; a saved
+  `ftps` connection with port 21 keeps 21. A file's URL names its own type (an `ftps` file's said `ftp`).
 
 ### Faster
 

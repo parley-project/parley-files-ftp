@@ -135,7 +135,10 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	public static final String PROP_USER = "user";
 	public static final String PROP_PSWD = "password";
 	public static final String PROP_ACCT = "account";
+	/** The ftp type's port (RFC 959), plain or with explicit TLS (AUTH TLS) */
 	public static final int DEFAULT_PORT = 21;
+	/** The ftps type's port: implicit TLS (RFC 4217 section 13 calls it "implicit FTPS") */
+	public static final int DEFAULT_IMPLICIT_TLS_PORT = 990;
 	public static final String PROP_SECURE = "secure";
 	public static final String PROP_TIMEOUT = "timeout";
 	/**
@@ -373,6 +376,22 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return false;
 	}
 
+	/**
+	 * How this factory's type uses TLS. ftp (false): {@value #PROP_SECURE} true means explicit TLS,
+	 * the client connects in plain text and sends AUTH TLS before it logs in, and doesn't log in if
+	 * the server refuses (RFC 4217); false is plain FTP. ftps (true): implicit TLS, TLS from the
+	 * first byte, always. 1.x and early 2.0.0 took secure=true as implicit TLS for both types, on
+	 * port 21 unless one was given, which a server that starts in plain text (most do) refuses.
+	 */
+	protected boolean implicitTls() {
+		return false;
+	}
+
+	/** @return the port when none is given: {@value #DEFAULT_PORT} for ftp, {@value #DEFAULT_IMPLICIT_TLS_PORT} for ftps */
+	public int defaultPort() {
+		return implicitTls() ? DEFAULT_IMPLICIT_TLS_PORT : DEFAULT_PORT;
+	}
+
 	public void setSecure(boolean secure) {
 		this.secure = secure;
 	}
@@ -561,13 +580,16 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	/** Opens and logs on one more connection to the server, configured as the main one is. */
 	private FtpClient connectNewClient() throws IOException {
 		FtpClientWrapper tmp = new FtpClientWrapper(this,getHost(),getPort());
-		tmp.setSecure(secure);
+		// ftps: TLS from the start. ftp: secure asks for AUTH TLS, and requires it (no plain text
+		// login with the password when the server refuses)
+		boolean implicit = implicitTls();
+		tmp.setSecure(implicit);
+		tmp.setRequestSecure(!implicit && isSecure());
+		tmp.setRequireSecure(!implicit && isSecure());
 		Integer buffer = configuredBufferSize();
 		if( buffer != null ) {
 			tmp.setTransferBufferSize(buffer);
 		}
-		// TODO:  Configure setRequestSecure
-		tmp.setRequestSecure(false);
 		tmp.setCmdTimeout(timeout);
 		tmp.setTxferTimeout(timeout);
 
@@ -880,12 +902,12 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 	public  int getPort() {
-		return port <= 0 ? DEFAULT_PORT : port;
+		return port <= 0 ? defaultPort() : port;
 	}
 
 	public  void setPort(int port) {
 		if( port <= 0 ) {
-			port = DEFAULT_PORT;
+			port = defaultPort();
 		}
 
 		this.port = port;
@@ -979,7 +1001,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		ret.setProperty(PROP_USER, user==null?"":user);        
 		ret.setProperty(PROP_PSWD, passwd==null?"":passwd);        
 		ret.setProperty(PROP_ACCT, account==null?"":account);
-		ret.setProperty(PROP_SECURE,""+secure);
+		ret.setProperty(PROP_SECURE,""+isSecure());
 		ret.setProperty(PROP_TIMEOUT,us.bringardner.parley.core.util.Durations.format(Math.max(0, timeout)));
 		ret.setProperty(PROP_STORE_AT_OFFSET,""+storeAtOffset);
 		Integer buffer = bufferSize;
@@ -1007,17 +1029,23 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 	@Override
 	public List<ConnectionSetting> getConnectionSettings() {
-		return List.of(
+		List<ConnectionSetting> ret = new java.util.ArrayList<>(List.of(
 				ConnectionSetting.text(PROP_HOST, "Host").asRequired(),
-				ConnectionSetting.integer(PROP_PORT, "Port", 1L, 65535L).withDefault(""+DEFAULT_PORT).asRequired(),
+				ConnectionSetting.integer(PROP_PORT, "Port", 1L, 65535L).withDefault(""+defaultPort()).asRequired(),
 				ConnectionSetting.text(PROP_USER, "User"),
-				ConnectionSetting.secret(PROP_PSWD, "Password"),
-				ConnectionSetting.bool(PROP_SECURE, "Use TLS (FTPS)"),
+				ConnectionSetting.secret(PROP_PSWD, "Password")));
+		if( !implicitTls() ) {
+			// ftps is always TLS: nothing to choose
+			ret.add(ConnectionSetting.bool(PROP_SECURE, "Use TLS (FTPS)")
+					.withDescription("Explicit TLS: AUTH TLS on this port before logging in. For implicit TLS (port 990) use the ftps type."));
+		}
+		ret.addAll(List.of(
 				ConnectionSetting.secret(PROP_ACCT, "Account").asAdvanced()
 					.withDescription("RFC 959 ACCT; only some servers use it"),
 				ConnectionSetting.duration(PROP_TIMEOUT, "Timeout").asAdvanced().withDefault("4s"),
 				ConnectionSetting.bool(PROP_STORE_AT_OFFSET, "Server stores at a REST offset").asAdvanced()
-					.withDescription("Lets random access write in the middle of a file (REST then STOR). Only for a server known to write in place there."));
+					.withDescription("Lets random access write in the middle of a file (REST then STOR). Only for a server known to write in place there.")));
+		return ret;
 	}
 
 
@@ -1029,7 +1057,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	public void setConnectionProperties(URL url) {
 		if( url == null ) {
 			setHost(null);
-			setPort(DEFAULT_PORT);
+			setPort(defaultPort());
 			setUser(null);
 			setPasswd(null);
 			setAccount(null);
@@ -1061,15 +1089,15 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			setUser(null);
 			setPasswd(null);
 			setAccount(null);
-			setPort(DEFAULT_PORT);
+			setPort(defaultPort());
 			secure = defaultSecure();
 			storeAtOffset = false;
 			bufferSize = null;
 		} else {
 			setHost(prop.getProperty(PROP_HOST));
-			int tmp = DEFAULT_PORT;
+			int tmp = defaultPort();
 			try {
-				tmp = Integer.parseInt(prop.getProperty(PROP_PORT,""+DEFAULT_PORT));
+				tmp = Integer.parseInt(prop.getProperty(PROP_PORT,""+defaultPort()));
 			} catch (Exception e) {
 			}
 			setPort(tmp);

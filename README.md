@@ -44,6 +44,18 @@ When a server does say:
   So a link and the file it leads to have different canonical paths here, and `isChildOfMine()` can't see
   that a link leads outside a directory. Ask `getLinkedTo()` for the target.
 
+## TLS
+
+| Type | `secure` | What it does | Default port |
+|---|---|---|---|
+| `ftp` | `false` (default) | Plain FTP | 21 |
+| `ftp` | `true` | Explicit TLS (RFC 4217): connects in plain text, sends `AUTH TLS` before logging in, and doesn't log in if the server refuses | 21 |
+| `ftps` | always | Implicit TLS: TLS from the first byte | 990 |
+
+Data connections are protected too (`PBSZ 0`, `PROT P`), and reuse the control connection's TLS session. The
+server's certificate must be trusted (`SecureBaseObject.setDefaultTrustManagers()`, as the viewers do with a dialog
+that asks) and issued for the host name connected to.
+
 ## What is remembered
 
 A FileSource remembers what the server said about its file and (for a folder) its listing for the attribute cache time
