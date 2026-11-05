@@ -198,6 +198,162 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	}
 
 
+	// ---- what changed, by path
+
+	/** Counts the changes made through this factory; each is stamped with the count after it. */
+	private final java.util.concurrent.atomic.AtomicLong changes = new java.util.concurrent.atomic.AtomicLong();
+	/** A path's stamp when the file there was changed (made, written, deleted, renamed ...). */
+	private final java.util.concurrent.ConcurrentHashMap<String, Long> entryChanged = new java.util.concurrent.ConcurrentHashMap<>();
+	/** A folder's stamp when what is in it changed. */
+	private final java.util.concurrent.ConcurrentHashMap<String, Long> listingChanged = new java.util.concurrent.ConcurrentHashMap<>();
+	/** The stamp of the last change that could have touched anything. */
+	private volatile long everythingChanged;
+
+	/**
+	 * The count of changes so far. A FileSource takes it before it asks the server, and what it is
+	 * told is good until a change after that touches its path (see {@link #changedSince}).
+	 */
+	long changeStamp() {
+		return changes.get();
+	}
+
+	/**
+	 * Says a file was changed through this factory (made, written, deleted, renamed, its
+	 * attributes set): what is known of it, of anything under it and of its folder's listing is
+	 * read again next time, and nothing else. A change used to drop what every FileSource of the
+	 * factory knew, so after one upload every folder shown was listed again.
+	 *
+	 * @param paths the absolute paths that changed
+	 */
+	void noteChange(String... paths) {
+		long stamp = changes.incrementAndGet();
+		for(String path : paths) {
+			String p = FtpFileSource.normalize(path);
+			entryChanged.put(p, stamp);
+			listingChanged.put(parentOf(p), stamp);
+		}
+		// FileSourceFactory's count, for anything that watches the factory as a whole
+		noteChange();
+	}
+
+	/** Says the listing of a folder (as well as the folder itself) must be read again, as a refresh does. */
+	void noteListingChange(String dir) {
+		long stamp = changes.incrementAndGet();
+		String p = FtpFileSource.normalize(dir);
+		entryChanged.put(p, stamp);
+		listingChanged.put(p, stamp);
+		listingChanged.put(parentOf(p), stamp);
+		noteChange();
+	}
+
+	/** Says anything may have changed: everything is read again. */
+	void noteEverythingChanged() {
+		everythingChanged = changes.incrementAndGet();
+		noteChange();
+	}
+
+	/**
+	 * @param path an absolute path
+	 * @param stamp the {@link #changeStamp()} taken before what is known of it was read
+	 * @param listing true for what is in the folder at path, false for the file itself
+	 * @return true if a change since then touched it: the file, a folder it is in (a rename or
+	 * delete of a folder changes everything under it), or for a listing, what is in it
+	 */
+	boolean changedSince(String path, long stamp, boolean listing) {
+		if( everythingChanged > stamp ) {
+			return true;
+		}
+		String p = FtpFileSource.normalize(path);
+		if( listing ) {
+			Long l = listingChanged.get(p);
+			if( l != null && l > stamp ) {
+				return true;
+			}
+		}
+		while( p != null ) {
+			Long e = entryChanged.get(p);
+			if( e != null && e > stamp ) {
+				return true;
+			}
+			p = p.equals("/") ? null : parentOf(p);
+		}
+		return false;
+	}
+
+	// ---- recent listings, shared by every FileSource of the factory
+
+	/** How many folder listings are kept for {@link #recentListing(String)}. */
+	static final int MAX_RECENT_LISTINGS = 64;
+
+	/** A folder's entries, the stamp taken before they were read and when they were read. */
+	static final class RecentListing {
+		final FtpFile[] files;
+		final long stamp;
+		final long at;
+
+		RecentListing(FtpFile[] files, long stamp, long at) {
+			this.files = files;
+			this.stamp = stamp;
+			this.at = at;
+		}
+
+		/** @return the entry with this name, or null */
+		FtpFile get(String name) {
+			for(FtpFile f : files) {
+				if( name.equals(f.getName()) ) {
+					return f;
+				}
+			}
+			return null;
+		}
+	}
+
+	private final java.util.LinkedHashMap<String, RecentListing> recentListings = new java.util.LinkedHashMap<>(16, 0.75f, true) {
+		private static final long serialVersionUID = 1L;
+
+		@Override
+		protected boolean removeEldestEntry(java.util.Map.Entry<String, RecentListing> eldest) {
+			return size() > MAX_RECENT_LISTINGS;
+		}
+	};
+
+	/**
+	 * Keeps a folder's listing, so any FileSource for that folder (or for a file in it) made later
+	 * uses it instead of asking the server again while it is trusted: a FileSource made from a path
+	 * (a typed path, a recent file, a parent folder) used to know nothing and ask.
+	 */
+	void keepListing(String dir, FtpFile[] files, long stamp, long at) {
+		synchronized (recentListings) {
+			recentListings.put(FtpFileSource.normalize(dir), new RecentListing(files, stamp, at));
+		}
+	}
+
+	/**
+	 * @return the folder's listing if one was read within the attribute cache time and nothing
+	 * changed in the folder since, otherwise null
+	 */
+	RecentListing recentListing(String dir) {
+		String p = FtpFileSource.normalize(dir);
+		RecentListing ret;
+		synchronized (recentListings) {
+			ret = recentListings.get(p);
+		}
+		if( ret != null && (System.currentTimeMillis() - ret.at > getAttributeCacheTtl()
+				|| changedSince(p, ret.stamp, true)) ) {
+			synchronized (recentListings) {
+				recentListings.remove(p, ret);
+			}
+			ret = null;
+		}
+		return ret;
+	}
+
+	private static String parentOf(String path) {
+		int idx = path.lastIndexOf('/');
+		return idx <= 0 ? "/" : path.substring(0, idx);
+	}
+
+
 
 	public int getTimeout() {
 		return timeout;
@@ -302,13 +458,15 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	protected FtpFile [] listFiles(String dirPath) throws IOException {
 		FtpFile [] ret = null;
 		dirPath = dirPath.replaceAll("//", "/");
-		String [] list = getFtpClient().executeList(dirPath);
+		String [] list = listOnTransfer(dirPath);
 		if( list == null ) {
 			logDebug("null list returned from executeList on "+dirPath);   
 		} else {
 			ret = new FtpFile[list.length];
+			FtpFile.Listing listing = new FtpFile.Listing(dirPath);
 			for (int idx = 0; idx < list.length; idx++) {
 				ret[idx] = new FtpFile(dirPath, list[idx], this);
+				listing.add(ret[idx]);
 			}
 
 			/*
@@ -334,6 +492,35 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		}
 
 		return ret;
+	}
+
+	/**
+	 * Lists a folder on a connection of its own (one kept from an earlier stream or listing, or a
+	 * new one), as streams do, so listings don't wait for each other or for the commands on the
+	 * main connection: a viewer lists its tree, its table and its path's folders at the same
+	 * time, and on one connection each waited for the one before. A kept connection the server
+	 * has closed meanwhile is replaced, once.
+	 */
+	private String[] listOnTransfer(String dirPath) throws IOException {
+		Transfer t = openTransfer();
+		boolean ok = false;
+		try {
+			String[] ret = t.client.executeList(dirPath);
+			ok = true;
+			return ret;
+		} catch (IOException e) {
+			if( t.main ) {
+				throw e;
+			}
+			// maybe a kept connection the server closed while it waited: try a new one
+			closeTransfer(t, false);
+			t = new Transfer(connectNewClient(), false);
+			String[] ret = t.client.executeList(dirPath);
+			ok = true;
+			return ret;
+		} finally {
+			closeTransfer(t, ok);
+		}
 	}
 
 	public String getTypeId() {
@@ -431,7 +618,7 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	/**
 	 * How long (ms) a FileSource trusts what it was told about a file (its attributes) and a
 	 * directory (its listing) before it asks the server again. A change made through this factory
-	 * is seen at once whatever this is (see {@link #getChangeCount()}); this is how soon a
+	 * is seen at once whatever this is (see {@link #noteChange(String...)}); this is how soon a
 	 * change made by someone else is seen. 0 asks every time, like a java.io.File.
 	 * <p>
 	 * The value set with {@link #setAttributeCacheTtl(long)}, else the system property
@@ -761,6 +948,12 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 	@Override
 	protected void disConnectImpl() {
 		connectionOpen = false;
+		entryChanged.clear();
+		listingChanged.clear();
+		synchronized (recentListings) {
+			recentListings.clear();
+		}
+		noteEverythingChanged();
 		clearLogin();
 		closeIdleTransfers();
 		if( client != null ) {

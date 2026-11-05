@@ -44,6 +44,19 @@ When a server does say:
   So a link and the file it leads to have different canonical paths here, and `isChildOfMine()` can't see
   that a link leads outside a directory. Ask `getLinkedTo()` for the target.
 
+## What is remembered
+
+A FileSource remembers what the server said about its file and (for a folder) its listing for the attribute cache time
+(`setAttributeCacheTtl()`, or the system property `parley.files.ftp.attributeCacheTtl`, a duration, default `2s`); that
+is how soon a change someone else makes is seen. A change made through the factory (a write, mkdir, delete, rename,
+times or permissions set) is seen at once, and drops only what it touched: that path, anything under it and its
+folder's listing. `refresh()` reads a file and its folder listing again, for every FileSource of that path. The factory
+keeps the last 64 listings, so a FileSource made from a path uses one read lately instead of asking again.
+
+A listing runs on a connection of its own (kept for the next one), so listings don't wait for each other. The Unix
+permission bits behind `canRead()` and the like aren't in `MLSD`'s facts: the first entry asked lists its folder once
+with `LIST` for all its entries.
+
 ## Locking
 
 In short, for `FtpFileSourceFactory` and `FtpsFileSourceFactory`:

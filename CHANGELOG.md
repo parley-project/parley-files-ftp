@@ -14,6 +14,19 @@
   `parley.files.ftp.attributeCacheTtl`, now a duration (`2s`) (were `ftp.bufferSize`, `ftp.attributeCacheTtl`).
 - **The `timeout` connection setting is a duration** (`4s`, `500ms`; a bare number is ms), and saved as one.
 
+### Faster
+
+- **One `LIST` per folder for permissions**: MLSx facts have no Unix permission bits, so each entry read them with a
+  `LIST` of its own (a directory listed its whole parent folder), and showing a folder of n entries with
+  `canRead()` took n+1 listings. The first entry asked now lists the folder once for every entry of its listing.
+- **A change only drops what it touched**: a write, mkdir, delete, rename or `refresh()` drops what is known of that
+  path, anything under it and its folder's listing. Any change used to drop what every FileSource of the factory knew.
+  `refresh()` now reads the folder's listing again too (it relied on that).
+- **Listings run on connections of their own**, kept for the next one as streams' are, so they no longer wait for each
+  other or for the main connection.
+- **Recent listings are shared**: a FileSource made from a path (a typed path, a recent file, a parent) takes its
+  details and listing from a listing read within the attribute cache time, instead of `MLST` and another listing.
+
 ## parley-files-ftp 1.1.0 (unreleased)
 
 Needs parley-files 1.1.0.

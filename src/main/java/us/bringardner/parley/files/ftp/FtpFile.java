@@ -47,6 +47,8 @@ import us.bringardner.parley.ftp.server.commands.Site;
 public class FtpFile extends FtpClientFile {
 
 	private final FtpFileSourceFactory factory;
+	/** The listing this entry came from, or null (see {@link Listing}). */
+	private volatile Listing listing;
 
 	private static Source source(FtpFileSourceFactory factory) {
 		return new Source() {
@@ -157,9 +159,15 @@ public class FtpFile extends FtpClientFile {
 	@Override
 	public char[] getPermissions() throws IOException {
 		if( permissions == null || permissions.length != 9) {
-			synchronized (this) {
-				if( permissions == null || permissions.length != 9) {
-					permissions = listPermissions();
+			Listing l = listing;
+			if( l != null ) {
+				// not under this entry's lock: the listing takes it to fill every entry
+				l.read(client(), this::logError);
+			} else {
+				synchronized (this) {
+					if( permissions == null || permissions.length != 9) {
+						permissions = listPermissions();
+					}
 				}
 			}
 		}
@@ -171,12 +179,69 @@ public class FtpFile extends FtpClientFile {
 	}
 
 	/**
-	 * The permissions from a LIST line, null if there isn't one. A file lists
-	 * as its own line; a directory lists its contents, so its line is found
-	 * in its parent's listing. (Directories used to get no permissions.)
+	 * The entries of one folder listing. MLSx facts have no Unix permission bits, so they come
+	 * from a LIST line. The first entry asked for
+	 * them lists the folder once and gives every entry of the listing its line: each entry used to
+	 * list on its own (a file its own path, a directory its whole parent folder), so showing a
+	 * folder of n entries with their permissions took n+1 listings.
+	 */
+	static final class Listing {
+		private final String dir;
+		private final java.util.List<FtpFile> files = new java.util.ArrayList<>();
+		private boolean read;
+
+		Listing(String dir) {
+			this.dir = dir;
+		}
+
+		void add(FtpFile f) {
+			files.add(f);
+			f.listing = this;
+		}
+
+		/** Lists the folder (once) and gives each entry its permissions. */
+		synchronized void read(FtpClient client, java.util.function.Consumer<String> problems) throws IOException {
+			if( read ) {
+				return;
+			}
+			read = true;
+			String[] resp = client.executeList(true, dir);
+			if( resp == null ) {
+				return;
+			}
+			java.util.Map<String, ListEntry> byName = new java.util.HashMap<>();
+			for(String line : resp) {
+				ListEntry e = ListEntry.parse(line, false, problems);
+				if( e.getName() != null ) {
+					byName.put(e.getName(), e);
+				}
+			}
+			for(FtpFile f : files) {
+				ListEntry e = byName.get(f.name);
+				if( e == null ) {
+					continue;
+				}
+				synchronized (f) {
+					if( f.permissions == null || f.permissions.length != 9 ) {
+						f.permissions = e.getPermissions();
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * The permissions from a LIST line, null if there isn't one: from the listing this entry came
+	 * from (one LIST for all its entries), else a file lists as its own line, and a directory's
+	 * line is found in its parent's listing. (Directories used to get no permissions.)
 	 */
 	private char[] listPermissions() throws IOException {
 		FtpClient client = client();
+		Listing l = listing;
+		if( l != null ) {
+			l.read(client, this::logError);
+			return permissions;
+		}
 		if( !isDirectory()) {
 			String[] resp= client.executeList(true, getAbsolutePath());
 			// should be one and only one line
@@ -236,7 +301,8 @@ public class FtpFile extends FtpClientFile {
 			ret = resp.isPositiveComplet();
 			//  just to make sure client stays in sync with server;
 			permissions = null;
-			factory.noteChange();
+			listing = null;
+			factory.noteChange(path);
 		}
 		
 		return ret;
@@ -253,7 +319,7 @@ public class FtpFile extends FtpClientFile {
 		try {
 			return super.delete();
 		} finally {
-			factory.noteChange();
+			factory.noteChange(getAbsolutePath());
 		}
 	}
 
@@ -262,7 +328,7 @@ public class FtpFile extends FtpClientFile {
 		try {
 			return super.mkdir();
 		} finally {
-			factory.noteChange();
+			factory.noteChange(getAbsolutePath());
 		}
 	}
 
@@ -271,16 +337,22 @@ public class FtpFile extends FtpClientFile {
 		try {
 			return super.mkdirs();
 		} finally {
-			factory.noteChange();
+			// any folder on the way may be new
+			java.util.List<String> made = new java.util.ArrayList<>();
+			for(String p = FtpFileSource.normalize(getAbsolutePath()); !p.equals(FtpClient.SEPARATOR); p = p.substring(0, Math.max(1, p.lastIndexOf(FtpClient.SEPARATOR_CHAR)))) {
+				made.add(p);
+			}
+			factory.noteChange(made.toArray(new String[0]));
 		}
 	}
 
 	@Override
 	public boolean renameTo(String newAbsolutePath) throws IOException {
+		String from = getAbsolutePath();
 		try {
 			return super.renameTo(newAbsolutePath);
 		} finally {
-			factory.noteChange();
+			factory.noteChange(from, newAbsolutePath);
 		}
 	}
 
@@ -292,7 +364,7 @@ public class FtpFile extends FtpClientFile {
 			logError("Can't set the creation time of "+getAbsolutePath(), e);
 			return false;
 		} finally {
-			factory.noteChange();
+			factory.noteChange(getAbsolutePath());
 		}
 	}
 
@@ -301,7 +373,7 @@ public class FtpFile extends FtpClientFile {
 		try {
 			return super.setLastModified(lastModifiedTime);
 		} finally {
-			factory.noteChange();
+			factory.noteChange(getAbsolutePath());
 		}
 	}
 }
