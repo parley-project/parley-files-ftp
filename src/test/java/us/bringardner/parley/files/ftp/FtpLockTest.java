@@ -19,6 +19,7 @@ import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.lock.LockScope;
 import us.bringardner.parley.files.test.AbstractLockTests;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
+import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -37,6 +38,7 @@ public class FtpLockTest extends AbstractLockTests {
 		root = Paths.get(FileSourceTestSupport.scratchDir("FtpLockRoot"));
 		Files.createDirectories(root);
 		server = new FtpServer();
+		server.setUserRegistry(new AnonymousUserRegistry());
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpLockPort", "8026")));
 		server.getLogger().setLevel(Level.ERROR);
