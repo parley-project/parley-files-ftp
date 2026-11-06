@@ -2,6 +2,13 @@
 
 ## parley-files-ftp 2.0.0 (unreleased)
 
+### Changed (2026-11-06: tests on parley-ftp's new parley-iam login)
+
+- **The tests' FTP servers use parley-ftp's `AnonymousUserRegistry`**: parley-ftp 2.0.0 (on parley-iam and the new
+  parley-net) has no built-in anonymous user, and a server with no user registry refuses every login. Every test
+  server now sets `setUserRegistry(new AnonymousUserRegistry())`, which lets `anonymous`/`ftp` in with any password as
+  before. No change to the FileSource itself: it logs in with a user and password as it did.
+
 ### Changed (needs a configuration change)
 
 - **`secure` defaults to the factory's type** (To-Do 7.6): false for `ftp`, true for `ftps`, both for a new factory and

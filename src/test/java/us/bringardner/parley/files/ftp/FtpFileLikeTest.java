@@ -16,6 +16,7 @@ import us.bringardner.parley.core.ILogger.Level;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileLikeBehaviorTests;
+import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /** An FTP server, reached through FtpFileSource, acts like a java.io.File. */
@@ -36,6 +37,7 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		deleteAll(root.toFile());
 		Files.createDirectories(root);
 		server = new FtpServer();
+		server.setUserRegistry(new AnonymousUserRegistry());
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpFileLikePort", "8025")));
 		// random access writes a chunk in the middle with REST and STOR, which must write in place
