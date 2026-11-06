@@ -23,6 +23,7 @@ import us.bringardner.parley.core.ILogger.Level;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.fileproxy.FileProxyFactory;
+import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -49,6 +50,7 @@ public class FtpPathContractTest {
 		write(serverRoot.resolve("base/outside/secret.txt"));
 
 		server = new FtpServer();
+		server.setUserRegistry(new AnonymousUserRegistry());
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(serverRoot.toString()));
 		server.setPort(PORT);
 		server.getLogger().setLevel(Level.ERROR);

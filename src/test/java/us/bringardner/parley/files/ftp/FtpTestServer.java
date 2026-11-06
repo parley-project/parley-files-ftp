@@ -11,6 +11,7 @@ import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
 import us.bringardner.parley.files.test.TestServerController;
+import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -61,6 +62,7 @@ final class FtpTestServer implements TestServerController {
 			root.mkdirs();
 		}
 		svr = new FtpServer();
+		svr.setUserRegistry(new AnonymousUserRegistry());
 		svr.setFtpRoot(root);
 		svr.setPort(PORT);
 		svr.getLogger().setLevel(Level.ERROR);
