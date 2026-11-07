@@ -25,6 +25,7 @@ import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.ISeekableInputStream;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
+import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -47,7 +48,7 @@ public class FtpSeekableInputStreamTest {
 		}
 		Files.createDirectories(root);
 		server = new FtpServer();
-		server.setUserRegistry(new AnonymousUserRegistry());
+		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpSeekablePort", "8033")));
 		server.getLogger().setLevel(Level.ERROR);

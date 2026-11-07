@@ -23,6 +23,7 @@ import org.junit.jupiter.api.io.TempDir;
 import us.bringardner.parley.core.ILogger.Level;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
+import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -48,7 +49,7 @@ public class FtpRandomAccessTest {
 
 	private static FtpServer start(Path root, int port, boolean storeAtOffset) throws Exception {
 		FtpServer s = new FtpServer();
-		s.setUserRegistry(new AnonymousUserRegistry());
+		s.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		s.setPort(port);
 		s.setStoreAtOffset(storeAtOffset);

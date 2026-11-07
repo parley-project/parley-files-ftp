@@ -2,6 +2,13 @@
 
 ## parley-files-ftp 2.0.0 (unreleased)
 
+### Changed (2026-11-07: parley-ftp's anonymous FTP is read only)
+
+- **The tests' FTP servers give anonymous `read` and `write`**: parley-ftp's `AnonymousUserRegistry()` now gives
+  anonymous `read` only, so every test server sets
+  `setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE))`. No change to the
+  FileSource itself.
+
 ### Changed (2026-11-06: tests on parley-ftp's new parley-iam login)
 
 - **The tests' FTP servers use parley-ftp's `AnonymousUserRegistry`**: parley-ftp 2.0.0 (on parley-iam and the new

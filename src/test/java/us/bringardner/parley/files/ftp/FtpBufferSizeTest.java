@@ -28,6 +28,7 @@ import us.bringardner.parley.files.StreamOptions;
 import us.bringardner.parley.ftp.client.ClientFtpInputStream;
 import us.bringardner.parley.ftp.client.ClientFtpOutputStream;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
+import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -148,7 +149,7 @@ public class FtpBufferSizeTest {
 		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpStreamOptionsRoot"));
 		Files.createDirectories(root);
 		FtpServer server = new FtpServer();
-		server.setUserRegistry(new AnonymousUserRegistry());
+		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpStreamOptionsPort", "8024")));
 		server.getLogger().setLevel(Level.ERROR);
@@ -227,7 +228,7 @@ public class FtpBufferSizeTest {
 		Path root = Paths.get(FileSourceTestSupport.scratchDir("FtpBufferRoot"));
 		Files.createDirectories(root);
 		FtpServer server = new FtpServer();
-		server.setUserRegistry(new AnonymousUserRegistry());
+		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpBufferPort", "8023")));
 		server.getLogger().setLevel(Level.ERROR);
