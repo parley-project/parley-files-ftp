@@ -165,5 +165,5 @@ server; their sizes are checked too.
 
 The tests start an FTP server from parley-ftp on port 8021 (`-DFtpPort=...` to change it) and run
 the shared FileSource test suite from parley-files against it. The test servers log in with anonymous FTP
-(parley-ftp's `AnonymousUserRegistry`): a parley-ftp server has no built-in users, so a server you connect to must
+(parley-ftp's `AnonymousUserRegistry`, given `read` and `write`, since it gives `read` only by default): a parley-ftp server has no built-in users, so a server you connect to must
 have a user registry configured (`parley.ftp.authenticationProvider`; see parley-ftp's README, "Users and logins").

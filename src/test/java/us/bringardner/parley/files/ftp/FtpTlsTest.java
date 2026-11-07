@@ -34,6 +34,7 @@ import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
+import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -102,7 +103,7 @@ public class FtpTlsTest {
 		Files.createDirectories(root.resolve("folder"));
 		Files.writeString(root.resolve("folder").resolve("a.txt"), "hello");
 		FtpServer s = new FtpServer();
-		s.setUserRegistry(new AnonymousUserRegistry());
+		s.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		s.setPort(port);
 		s.setSecure(implicit);

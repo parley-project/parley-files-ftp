@@ -20,6 +20,7 @@ import us.bringardner.parley.core.ILogger.Level;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
+import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
 
 /**
@@ -51,7 +52,7 @@ public class FtpExternalChangeTest {
 		}
 		Files.createDirectories(root);
 		server = new FtpServer();
-		server.setUserRegistry(new AnonymousUserRegistry());
+		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		// A free port for each test: the server is restarted before every one, and the last one's
 		// port may not be released yet (BindException: Address already in use)
