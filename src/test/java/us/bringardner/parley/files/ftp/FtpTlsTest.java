@@ -152,6 +152,19 @@ public class FtpTlsTest {
 		return prop;
 	}
 
+	/**
+	 * Whether the client sent AUTH. The dialog also holds the server's replies, and FEAT lists
+	 * "AUTH TLS" (RFC 4217 section 6), so only the client's own lines ("Write:...") are looked at.
+	 */
+	private static boolean sentAuth(FtpFileSourceFactory f) throws java.io.IOException {
+		for (String line : f.getFtpClient().getDialog().split("\\R")) {
+			if( line.contains("Write:AUTH") ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Lists /folder and reads a.txt, so the data connections are tried too. */
 	private static void useIt(FtpFileSourceFactory f) throws Exception {
 		FileSource folder = f.createFileSource("/folder");
@@ -182,7 +195,7 @@ public class FtpTlsTest {
 		try {
 			assertTrue(f.connect(login(EXPLICIT_PORT, "false")), "plain login");
 			assertFalse(f.getFtpClient().isChannelSecure());
-			assertFalse(f.getFtpClient().getDialog().contains("AUTH"), f.getFtpClient().getDialog());
+			assertFalse(sentAuth(f), f.getFtpClient().getDialog());
 			useIt(f);
 		} finally {
 			f.disConnect();
@@ -196,7 +209,7 @@ public class FtpTlsTest {
 		try {
 			// secure=false is ignored: ftps is always TLS
 			assertTrue(f.connect(login(IMPLICIT_PORT, "false")), "implicit TLS login");
-			assertFalse(f.getFtpClient().getDialog().contains("AUTH"), "no AUTH on an implicit TLS connection");
+			assertFalse(sentAuth(f), "no AUTH on an implicit TLS connection: " + f.getFtpClient().getDialog());
 			useIt(f);
 			assertTrue(f.createFileSource("/folder").toURL().toString().contains("=ftps"),
 					"a file's URL names its own type: " + f.createFileSource("/folder").toURL());
