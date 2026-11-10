@@ -19,7 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
@@ -44,7 +44,7 @@ public class FtpConcurrentStreamsTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpConcurrentStreamsPort", "8031")));
-		server.getLogger().setLevel(Level.ERROR);
+		server.setLogLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -59,7 +59,7 @@ public class FtpConcurrentStreamsTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(Level.ERROR);
+		factory.setLogLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
 	}
 
