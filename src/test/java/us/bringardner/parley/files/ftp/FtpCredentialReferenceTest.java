@@ -19,7 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.credentials.CredentialException;
 import us.bringardner.parley.files.credentials.Credentials;
@@ -59,7 +59,7 @@ public class FtpCredentialReferenceTest {
 
 	private static FtpFileSourceFactory factory() {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(Level.ERROR);
+		f.setLogLevel(LogLevel.ERROR);
 		return f;
 	}
 

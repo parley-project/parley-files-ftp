@@ -20,7 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
@@ -53,7 +53,7 @@ public class FtpRandomAccessTest {
 		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		s.setPort(port);
 		s.setStoreAtOffset(storeAtOffset);
-		s.getLogger().setLevel(Level.ERROR);
+		s.setLogLevel(LogLevel.ERROR);
 		s.start();
 		long t = System.currentTimeMillis();
 		while( !s.isRunning() && System.currentTimeMillis() - t < 5000 ) {
@@ -72,7 +72,7 @@ public class FtpRandomAccessTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "" + storeAtOffset);
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(Level.ERROR);
+		f.setLogLevel(LogLevel.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
 		return f;
 	}
