@@ -19,7 +19,7 @@ import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.ConnectionSettings;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
@@ -152,7 +152,7 @@ public class FtpBufferSizeTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpStreamOptionsPort", "8024")));
-		server.getLogger().setLevel(Level.ERROR);
+		server.setLogLevel(LogLevel.ERROR);
 		server.start();
 		FtpFileSourceFactory factory = null;
 		try {
@@ -170,7 +170,7 @@ public class FtpBufferSizeTest {
 			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 			prop.setProperty(KEY, "20000");
 			factory = new FtpFileSourceFactory();
-			factory.getLogger().setLevel(Level.ERROR);
+			factory.setLogLevel(LogLevel.ERROR);
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			FileSource file = factory.createFileSource("/streamOptions.bin");
@@ -231,7 +231,7 @@ public class FtpBufferSizeTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpBufferPort", "8023")));
-		server.getLogger().setLevel(Level.ERROR);
+		server.setLogLevel(LogLevel.ERROR);
 		server.start();
 		FtpFileSourceFactory factory = null;
 		try {
@@ -249,7 +249,7 @@ public class FtpBufferSizeTest {
 			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 			prop.setProperty(KEY, "20000");
 			factory = new FtpFileSourceFactory();
-			factory.getLogger().setLevel(Level.ERROR);
+			factory.setLogLevel(LogLevel.ERROR);
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			assertEquals(20000, factory.getFtpClient().getTransferBufferSize(), "applied when the client was created");
