@@ -5,8 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.util.Properties;
 
-import us.bringardner.parley.core.ParleyLogger;
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
@@ -32,7 +31,6 @@ final class FtpTestServer implements TestServerController {
 	 * and server under test (FileSourceTestSupport stops it after the class).
 	 */
 	static FtpTestServer startAndConnect() throws IOException {
-		System.setProperty(us.bringardner.parley.core.BaseObject.PROPERTY_LOGGER, ParleyLogger.class.getName());
 		FtpTestServer server = new FtpTestServer();
 		FileSourceTestSupport.startServer(server, TIMEOUT);
 
@@ -44,7 +42,7 @@ final class FtpTestServer implements TestServerController {
 		prop.setProperty(FtpFileSourceFactory.PROP_ACCT, "bar.com");
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		FtpFileSourceFactory factory = new FtpFileSourceFactory();		
-		factory.getLogger().setLevel(Level.ERROR);
+		factory.setLogLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop),"Can't connect to server");
 		FileSourceTestSupport.factory = factory;
 		FileSourceTestSupport.server = server;
@@ -66,7 +64,7 @@ final class FtpTestServer implements TestServerController {
 		svr.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		svr.setFtpRoot(root);
 		svr.setPort(PORT);
-		svr.getLogger().setLevel(Level.ERROR);
+		svr.setLogLevel(LogLevel.ERROR);
 		try {
 			svr.start();
 		} catch (Exception e) {

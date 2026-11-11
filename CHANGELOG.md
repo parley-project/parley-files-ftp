@@ -2,6 +2,10 @@
 
 ## parley-files-ftp 2.0.0 (unreleased)
 
+### Changed (2026-11-10: logging through System.Logger, To-Do 19.5)
+
+- **Logging through `System.Logger`** (parley-core): the tests set levels with `setLogLevel`.
+
 ### Changed (2026-11-07: parley-ftp's anonymous FTP is read only)
 
 - **The tests' FTP servers give anonymous `read` and `write`**: parley-ftp's `AnonymousUserRegistry()` now gives

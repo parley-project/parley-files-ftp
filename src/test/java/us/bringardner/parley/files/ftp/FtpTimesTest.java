@@ -13,7 +13,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
@@ -38,7 +38,7 @@ public class FtpTimesTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(dir.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpTimesPort", "8036")));
-		server.getLogger().setLevel(Level.ERROR);
+		server.setLogLevel(LogLevel.ERROR);
 		server.start();
 		long t = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - t < 5000 ) {
@@ -51,7 +51,7 @@ public class FtpTimesTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(Level.ERROR);
+		factory.setLogLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop));
 	}
 

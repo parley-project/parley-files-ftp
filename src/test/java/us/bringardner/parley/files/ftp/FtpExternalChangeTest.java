@@ -16,7 +16,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.ILogger.Level;
+import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
@@ -36,7 +36,7 @@ public class FtpExternalChangeTest {
 
 	private FtpFileSourceFactory connect(Properties prop) throws Exception {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(Level.ERROR);
+		f.setLogLevel(LogLevel.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
 		return f;
 	}
@@ -63,7 +63,7 @@ public class FtpExternalChangeTest {
 			}
 		}
 		server.setPort(Integer.parseInt(port));
-		server.getLogger().setLevel(Level.ERROR);
+		server.setLogLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
