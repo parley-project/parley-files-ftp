@@ -31,6 +31,7 @@ package us.bringardner.parley.files.ftp;
 
 import java.io.IOException;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
@@ -170,7 +171,8 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 
 
 	private  FtpFileSource currentDirectory; 
-	private  FtpClient client;
+	/** volatile: isConnected() reads it without the lock */
+	private volatile FtpClient client;
 	/** false after disConnect, so a stream that finishes then closes its connection instead of keeping it */
 	private volatile boolean connectionOpen = true;
 	private  String host;
@@ -600,7 +602,21 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			pw = loginPasswd == null ? null : new String(loginPasswd);
 			acct = loginAccount == null ? null : new String(loginAccount);
 		}
-		if( !tmp.connect(getUser(),pw,acct)) {
+		boolean loggedOn;
+		try {
+			loggedOn = tmp.connect(getUser(),pw,acct);
+		} catch (SocketTimeoutException e) {
+			tmp.close();
+			SocketTimeoutException t = new SocketTimeoutException("No answer from "+getHost()+":"+getPort()
+					+" within "+describeTimeout()+" (timeout): "+e.getMessage());
+			t.initCause(e);
+			throw t;
+		} catch (IOException | RuntimeException e) {
+			// a connection that failed part way is closed, not left open
+			tmp.close();
+			throw e;
+		}
+		if( !loggedOn ) {
 			ClientFtpResponse res = tmp.getLastResponse();
 			String reply = res == null ? "No reply availible": res.getResponseText();
 			String msg = "Can't log on to "+getHost()+":"+getPort()+" user= "+getUser()+" reply="+reply;
@@ -939,7 +955,21 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 			ensureLogin();
 		}
 		connectionOpen = true;
-		return isConnected();
+		synchronized (this) {
+			// a main connection the server has dropped is replaced, not handed back
+			FtpClient old = client;
+			if( old != null && !old.isConnected() ) {
+				client = null;
+				old.close();
+			}
+		}
+		// a failure (no answer, refused login) reaches the caller as an exception
+		return getFtpClient().isConnected();
+	}
+
+	/** The timeout as a person would write it: 5 s, or 2500 ms. */
+	private String describeTimeout() {
+		return timeout % 1000 == 0 ? (timeout / 1000)+" s" : timeout+" ms";
 	}
 
 	/** Resolves the password and account (references are looked up) if not done yet. */
@@ -1012,19 +1042,19 @@ public class FtpFileSourceFactory extends FileSourceFactory {
 		return ret;
 	}
 
+	/**
+	 * Only checks: it never connects. connect() asks this first and connectImpl() connects, so a
+	 * check that connected waited a whole timeout on a server that doesn't answer, then a second
+	 * one in connectImpl().
+	 */
 	public boolean isConnected() {
-
-		boolean ret = false;
-		try {
-			FtpClient client= getFtpClient();
-			client.setCmdTimeout(timeout);
-			client.setTxferTimeout(timeout);
-			ret = client.isConnected();            
-		} catch (Exception ex) {
-			logError("",ex);
+		FtpClient c = client;
+		if( c == null ) {
+			return false;
 		}
-
-		return ret;
+		c.setCmdTimeout(timeout);
+		c.setTxferTimeout(timeout);
+		return c.isConnected();
 	}
 
 	@Override
