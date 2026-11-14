@@ -109,6 +109,9 @@ public class FtpListingCacheTest {
 
 	@Test
 	void onePermissionListingPerFolder() throws Exception {
+		// (the login, ftp, is not the owner of the files, so what it can read is what "other" can: on
+		// Windows that is nothing, as the folder's access list gives Everyone no access)
+		org.junit.jupiter.api.Assumptions.assumeFalse(java.io.File.separatorChar == '\\', "other can't read these files on Windows");
 		FileSource a = factory.createFileSource("/a");
 		FileSource[] kids = a.listFiles();
 		assertEquals(ENTRIES + 1, kids.length);
