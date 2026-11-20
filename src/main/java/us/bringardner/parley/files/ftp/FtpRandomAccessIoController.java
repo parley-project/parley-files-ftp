@@ -156,7 +156,7 @@ public class FtpRandomAccessIoController extends AbstractRandomAccessIoControlle
 	/** The length of the file on the server now (not counting what is held in a new chunk). */
 	private long storedLength() throws IOException {
 		ftpFile.refresh();
-		return ftpFile.length();
+		return ftpFile.contentLength();
 	}
 
 	private void checkWritable() throws IOException {

@@ -43,7 +43,7 @@ final class FtpSeekableInputStream extends InputStream implements ISeekableInput
 	public long length() throws IOException {
 		// a file is as long as it is now, not as long as it was when it was last looked at
 		file.refresh();
-		return file.length();
+		return file.contentLength();
 	}
 
 	@Override

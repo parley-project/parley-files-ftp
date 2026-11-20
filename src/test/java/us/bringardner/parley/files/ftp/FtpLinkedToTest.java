@@ -162,7 +162,8 @@ public class FtpLinkedToTest {
 		assertTrue(ln.exists());
 		assertTrue(ln.isFile());
 		assertFalse(ln.isDirectory());
-		assertEquals(5, ln.length(), "the target's size, not the link's own");
+		assertEquals(9, ln.length(), "the link's own length, that of its text");
+		assertEquals(5, ln.contentLength(), "the target's");
 		assertEquals(at("/real.txt").lastModified(), ln.lastModified());
 
 		FileSource lnd = at("/lnd");
@@ -172,8 +173,18 @@ public class FtpLinkedToTest {
 
 		FileSource chain = at("/chain");
 		assertTrue(chain.isFile(), "a link to a link follows both");
-		assertEquals(5, chain.length());
+		assertEquals(3, chain.length());
+		assertEquals(5, chain.contentLength());
 		assertEquals("/ln", chain.getLinkedTo().getAbsolutePath());
+	}
+
+	/** MFMT follows a link, so the time of the link itself can't be set: false, and the file's is not touched (D78) */
+	@Test
+	void theTimeOfALinkCanNotBeSet() throws Exception {
+		FileSource ln = at("/ln");
+		assertFalse(ln.setLastModifiedTime(1_700_000_000_000L));
+		assertFalse(ln.setCreateTime(1_700_000_000_000L));
+		assertFalse(ln.setLastAccessTime(1_700_000_000_000L));
 	}
 
 	/**
@@ -197,7 +208,8 @@ public class FtpLinkedToTest {
 		assertFalse(d.exists());
 		assertFalse(d.isFile());
 		assertFalse(d.isDirectory());
-		assertEquals(0, d.length());
+		assertEquals(8, d.length(), "its own, the text's");
+		assertEquals(0, d.contentLength(), "it leads nowhere");
 	}
 
 	@Test
@@ -206,6 +218,7 @@ public class FtpLinkedToTest {
 		assertNotNull(l.getLinkedTo());
 		assertFalse(l.exists());
 		assertFalse(l.isDirectory());
-		assertEquals(0, l.length());
+		assertEquals(5, l.length());
+		assertEquals(0, l.contentLength(), "it leads nowhere");
 	}
 }
