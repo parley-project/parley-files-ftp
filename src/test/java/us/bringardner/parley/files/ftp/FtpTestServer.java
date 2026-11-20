@@ -20,7 +20,7 @@ import us.bringardner.parley.ftp.server.FtpServer;
  */
 final class FtpTestServer implements TestServerController {
 
-	static final int PORT = Integer.parseInt(System.getProperty("FtpPort", "8021"));
+	static final int PORT = Integer.parseInt(System.getProperty("FtpPort", "8022"));
 	static final long TIMEOUT = 6000;
 
 	private FtpServer svr;
