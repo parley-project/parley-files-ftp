@@ -500,7 +500,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		if( !tmp.isFile() ) {
 			throw new IOException("Can't create stream from directory");
 		}
-		if( startingPos > 0 && startingPos >= length() ) {
+		if( startingPos > 0 && startingPos >= contentLength() ) {
 			// nothing is left to read there; servers refuse a REST at or past the end (554)
 			return new java.io.ByteArrayInputStream(new byte[0]);
 		}
@@ -607,7 +607,7 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		if( !tmp.isFile() ) {
 			throw new IOException("Can't create stream from directory");
 		}
-		if( start >= length() ) {
+		if( start >= contentLength() ) {
 			return new java.io.ByteArrayInputStream(new byte[0]);
 		}
 		FtpFileSourceFactory f = (FtpFileSourceFactory) getFileSourceFactory();
@@ -779,26 +779,27 @@ public class FtpFileSource extends BaseObject implements FileSource {
 		return false;
 	}
 
+	/** As lstat: a link's own time, from its own line of the listing (D78) */
 	public long lastModified() throws IOException {
 		long ret = 0;
 
 		FtpFile tmp = getTarget();
 		if( tmp != null ) {
-			boolean[] link = new boolean[1];
-			Long viaLink = throughLink(FileSource::lastModified, 0L, link);
-			ret = link[0] ? viaLink : tmp.getLastModified();
+			ret = tmp.getLastModified();
 		}
 		return ret;
 	}
 
+	/**
+	 * As lstat: a link's own length is the length of its text, as its line of the listing says (D78);
+	 * {@link #contentLength()} is the length of what it leads to.
+	 */
 	public long length() throws IOException {
 		long ret = 0;
 
 		FtpFile tmp = getTarget();
 		if( tmp != null ) {
-			boolean[] link = new boolean[1];
-			Long viaLink = throughLink(FileSource::length, 0L, link);
-			ret = link[0] ? viaLink : tmp.getLength();
+			ret = tmp.getLength();
 		}
 		return ret;
 	}
@@ -912,7 +913,9 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	public boolean setLastModified(long time) throws IOException {
 		boolean ret = false;
 		FtpFile tmp = getTarget();
-		if( tmp != null ) {
+		// MFMT and SITE follow a link: there is no way to set the time of the link itself, and setting the
+		// file's would be setting the wrong one (D78)
+		if( tmp != null && tmp.getLinkTarget() == null ) {
 			ret = tmp.setLastModified(time);
 		}
 		return ret;
@@ -1517,7 +1520,8 @@ public class FtpFileSource extends BaseObject implements FileSource {
 	@Override
 	public boolean setCreateTime(long time) throws IOException {
 		FtpFile tmp = getTarget();
-		if( tmp != null ) {
+		// (a link's own: MFCT follows it, so not for a link, as with setLastModified)
+		if( tmp != null && tmp.getLinkTarget() == null ) {
 			return tmp.setCreationTime(time);
 		}
 		return false;
