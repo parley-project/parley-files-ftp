@@ -59,7 +59,7 @@ public class FtpCredentialReferenceTest {
 
 	private static FtpFileSourceFactory factory() {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.setLogLevel(LogLevel.ERROR);
+		f.getLogger().setLevel(LogLevel.ERROR);
 		return f;
 	}
 

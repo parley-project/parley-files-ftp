@@ -53,7 +53,7 @@ public class FtpListingCacheTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpListingCachePort", "8037")));
-		server.setLogLevel(LogLevel.ERROR);
+		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -68,7 +68,7 @@ public class FtpListingCacheTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.setLogLevel(LogLevel.ERROR);
+		factory.getLogger().setLevel(LogLevel.ERROR);
 		// long enough that nothing in a test expires on its own
 		factory.setAttributeCacheTtl(60_000);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");

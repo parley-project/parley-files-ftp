@@ -152,7 +152,7 @@ public class FtpBufferSizeTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpStreamOptionsPort", "8024")));
-		server.setLogLevel(LogLevel.ERROR);
+		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		FtpFileSourceFactory factory = null;
 		try {
@@ -170,7 +170,7 @@ public class FtpBufferSizeTest {
 			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 			prop.setProperty(KEY, "20000");
 			factory = new FtpFileSourceFactory();
-			factory.setLogLevel(LogLevel.ERROR);
+			factory.getLogger().setLevel(LogLevel.ERROR);
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			FileSource file = factory.createFileSource("/streamOptions.bin");
@@ -231,7 +231,7 @@ public class FtpBufferSizeTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpBufferPort", "8023")));
-		server.setLogLevel(LogLevel.ERROR);
+		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		FtpFileSourceFactory factory = null;
 		try {
@@ -249,7 +249,7 @@ public class FtpBufferSizeTest {
 			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 			prop.setProperty(KEY, "20000");
 			factory = new FtpFileSourceFactory();
-			factory.setLogLevel(LogLevel.ERROR);
+			factory.getLogger().setLevel(LogLevel.ERROR);
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			assertEquals(20000, factory.getFtpClient().getTransferBufferSize(), "applied when the client was created");

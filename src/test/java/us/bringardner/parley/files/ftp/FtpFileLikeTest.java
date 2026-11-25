@@ -43,7 +43,7 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		server.setPort(Integer.parseInt(System.getProperty("FtpFileLikePort", "8025")));
 		// random access writes a chunk in the middle with REST and STOR, which must write in place
 		server.setStoreAtOffset(true);
-		server.setLogLevel(LogLevel.ERROR);
+		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -59,7 +59,7 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "true");
 		factory = new FtpFileSourceFactory();
-		factory.setLogLevel(LogLevel.ERROR);
+		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
 	}
 

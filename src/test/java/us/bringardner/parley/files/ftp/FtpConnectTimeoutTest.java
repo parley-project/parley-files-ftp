@@ -50,7 +50,7 @@ public class FtpConnectTimeoutTest {
 	private void check(FtpFileSourceFactory factory) throws Exception {
 		Set<Thread> before = new HashSet<>(Thread.getAllStackTraces().keySet());
 		try (SilentServer server = new SilentServer()) {
-			factory.setLogLevel(LogLevel.ERROR);
+			factory.getLogger().setLevel(LogLevel.ERROR);
 			try {
 				long start = System.nanoTime();
 				SocketTimeoutException e = assertThrows(SocketTimeoutException.class,
@@ -90,7 +90,7 @@ public class FtpConnectTimeoutTest {
 		}
 		FtpServer svr = startServer(root, port);
 		FtpFileSourceFactory factory = new FtpFileSourceFactory();
-		factory.setLogLevel(LogLevel.ERROR);
+		factory.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			assertTrue(factory.connect(props(port)));
 			stopServer(svr);
@@ -126,7 +126,7 @@ public class FtpConnectTimeoutTest {
 		svr.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		svr.setFtpRoot(root);
 		svr.setPort(port);
-		svr.setLogLevel(LogLevel.ERROR);
+		svr.getLogger().setLevel(LogLevel.ERROR);
 		svr.start();
 		long end = System.currentTimeMillis() + 5000;
 		while( !svr.isRunning() && System.currentTimeMillis() < end ) {

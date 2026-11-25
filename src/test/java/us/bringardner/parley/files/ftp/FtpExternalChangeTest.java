@@ -36,7 +36,7 @@ public class FtpExternalChangeTest {
 
 	private FtpFileSourceFactory connect(Properties prop) throws Exception {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.setLogLevel(LogLevel.ERROR);
+		f.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
 		return f;
 	}
@@ -63,7 +63,7 @@ public class FtpExternalChangeTest {
 			}
 		}
 		server.setPort(Integer.parseInt(port));
-		server.setLogLevel(LogLevel.ERROR);
+		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {

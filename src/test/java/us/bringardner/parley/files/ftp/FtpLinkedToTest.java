@@ -78,7 +78,7 @@ public class FtpLinkedToTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + listener.getLocalPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.setLogLevel(LogLevel.ERROR);
+		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the scripted server");
 	}
 

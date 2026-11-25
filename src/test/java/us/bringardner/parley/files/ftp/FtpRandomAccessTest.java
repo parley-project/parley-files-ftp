@@ -53,7 +53,7 @@ public class FtpRandomAccessTest {
 		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		s.setPort(port);
 		s.setStoreAtOffset(storeAtOffset);
-		s.setLogLevel(LogLevel.ERROR);
+		s.getLogger().setLevel(LogLevel.ERROR);
 		s.start();
 		long t = System.currentTimeMillis();
 		while( !s.isRunning() && System.currentTimeMillis() - t < 5000 ) {
@@ -72,7 +72,7 @@ public class FtpRandomAccessTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "" + storeAtOffset);
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.setLogLevel(LogLevel.ERROR);
+		f.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
 		return f;
 	}

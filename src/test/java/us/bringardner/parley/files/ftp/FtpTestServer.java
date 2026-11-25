@@ -42,7 +42,7 @@ final class FtpTestServer implements TestServerController {
 		prop.setProperty(FtpFileSourceFactory.PROP_ACCT, "bar.com");
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		FtpFileSourceFactory factory = new FtpFileSourceFactory();		
-		factory.setLogLevel(LogLevel.ERROR);
+		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop),"Can't connect to server");
 		FileSourceTestSupport.factory = factory;
 		FileSourceTestSupport.server = server;
@@ -64,7 +64,7 @@ final class FtpTestServer implements TestServerController {
 		svr.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		svr.setFtpRoot(root);
 		svr.setPort(PORT);
-		svr.setLogLevel(LogLevel.ERROR);
+		svr.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			svr.start();
 		} catch (Exception e) {
