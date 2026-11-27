@@ -22,7 +22,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 
 /**
@@ -78,7 +77,6 @@ public class FtpLinkedToTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + listener.getLocalPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the scripted server");
 	}
 

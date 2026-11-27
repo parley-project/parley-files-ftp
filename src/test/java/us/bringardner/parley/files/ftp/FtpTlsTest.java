@@ -28,7 +28,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.core.SecureBaseObject;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
@@ -36,11 +35,13 @@ import us.bringardner.parley.files.test.FileSourceTestSupport;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * How each type uses TLS: ftp with secure is explicit TLS (AUTH TLS on a server that starts in plain
  * text, and no login without it), ftp without it is plain FTP, and ftps is implicit TLS.
  */
+@ErrorsExpected
 public class FtpTlsTest {
 
 	private static final String[] KEYSTORE_PROPERTIES = {
@@ -107,7 +108,6 @@ public class FtpTlsTest {
 		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		s.setPort(port);
 		s.setSecure(implicit);
-		s.getLogger().setLevel(LogLevel.ERROR);
 		s.start();
 		long start = System.currentTimeMillis();
 		while( !s.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -177,7 +177,6 @@ public class FtpTlsTest {
 	@Test
 	void ftpWithSecureIsExplicitTls() throws Exception {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			assertTrue(f.connect(login(EXPLICIT_PORT, "true")), "explicit TLS login");
 			assertTrue(f.getFtpClient().isChannelSecure(), "AUTH TLS made the control connection TLS");
@@ -191,7 +190,6 @@ public class FtpTlsTest {
 	@Test
 	void ftpWithoutSecureIsPlain() throws Exception {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			assertTrue(f.connect(login(EXPLICIT_PORT, "false")), "plain login");
 			assertFalse(f.getFtpClient().isChannelSecure());
@@ -205,7 +203,6 @@ public class FtpTlsTest {
 	@Test
 	void ftpsIsImplicitTls() throws Exception {
 		FtpFileSourceFactory f = new FtpsFileSourceFactory();
-		f.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			// secure=false is ignored: ftps is always TLS
 			assertTrue(f.connect(login(IMPLICIT_PORT, "false")), "implicit TLS login");
@@ -242,6 +239,7 @@ public class FtpTlsTest {
 		}
 	}
 
+	@ErrorsExpected
 	@Test
 	void noLoginWhenTheServerRefusesAuthTls() throws Exception {
 		// a server that answers in plain text and refuses AUTH: the password must not be sent
@@ -264,7 +262,6 @@ public class FtpTlsTest {
 			t.start();
 
 			FtpFileSourceFactory f = new FtpFileSourceFactory();
-			f.getLogger().setLevel(LogLevel.ERROR);
 			boolean connected;
 			try {
 				connected = f.connect(login(ss.getLocalPort(), "true"));

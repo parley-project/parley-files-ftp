@@ -6,8 +6,10 @@ import java.io.IOException;
 import org.junit.jupiter.api.BeforeAll;
 
 import us.bringardner.parley.files.test.AbstractNioProviderTests;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /** The shared java.nio.file provider tests over FTP. */
+@ErrorsExpected
 public class FtpNioProviderTests extends AbstractNioProviderTests {
 
 	@BeforeAll

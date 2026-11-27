@@ -20,11 +20,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * FtpRandomAccessIoController: chunks read with RANG (or REST) and RETR and written with RANG then STOR,
@@ -34,6 +34,7 @@ import us.bringardner.parley.ftp.server.FtpServer;
  * done only when the factory says the server stores at an offset; a server that refuses leaves the file as
  * it was, and one that replaces or adds to the file instead is caught by the size check.
  */
+@ErrorsExpected
 public class FtpRandomAccessTest {
 
 	private static final int CHUNK = 64;
@@ -53,7 +54,6 @@ public class FtpRandomAccessTest {
 		s.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		s.setPort(port);
 		s.setStoreAtOffset(storeAtOffset);
-		s.getLogger().setLevel(LogLevel.ERROR);
 		s.start();
 		long t = System.currentTimeMillis();
 		while( !s.isRunning() && System.currentTimeMillis() - t < 5000 ) {
@@ -72,7 +72,6 @@ public class FtpRandomAccessTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "" + storeAtOffset);
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
 		return f;
 	}

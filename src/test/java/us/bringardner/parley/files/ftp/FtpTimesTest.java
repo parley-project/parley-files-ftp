@@ -13,17 +13,18 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * Setting times over FTP: the modification time with MFMT (parley's FtpServer has it), the creation time
  * with MFCT where the file system keeps one, and never the access time.
  */
+@ErrorsExpected
 public class FtpTimesTest {
 
 	@TempDir
@@ -38,7 +39,6 @@ public class FtpTimesTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(dir.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpTimesPort", "8036")));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long t = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - t < 5000 ) {
@@ -51,7 +51,6 @@ public class FtpTimesTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop));
 	}
 

@@ -20,18 +20,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.ISeekableInputStream;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * FTP reads from an offset (REST) but can't write at one, so the seekable stream is read only:
  * it acts as a RandomAccessFile opened with "r" does.
  */
+@ErrorsExpected
 public class FtpSeekableInputStreamTest {
 
 	private FtpServer server;
@@ -51,7 +52,6 @@ public class FtpSeekableInputStreamTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpSeekablePort", "8033")));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -66,7 +66,6 @@ public class FtpSeekableInputStreamTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 		data = new byte[400_000];

@@ -16,17 +16,18 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * A change made through another connection can't be announced to this factory, so a FileSource
  * that was kept sees it when what it remembered expires (getAttributeCacheTtl).
  */
+@ErrorsExpected
 public class FtpExternalChangeTest {
 
 	private static final long TTL = 150;
@@ -36,7 +37,6 @@ public class FtpExternalChangeTest {
 
 	private FtpFileSourceFactory connect(Properties prop) throws Exception {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(f.connect(prop), "can't connect to the FTP server");
 		return f;
 	}
@@ -63,7 +63,6 @@ public class FtpExternalChangeTest {
 			}
 		}
 		server.setPort(Integer.parseInt(port));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {

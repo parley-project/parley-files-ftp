@@ -14,18 +14,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * What a folder listing costs: the permissions of all its entries come from one LIST, a change
  * only drops what it touched, and a FileSource made from a path uses a listing already read.
  */
+@ErrorsExpected
 public class FtpListingCacheTest {
 
 	private static final int ENTRIES = 12;
@@ -53,7 +54,6 @@ public class FtpListingCacheTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpListingCachePort", "8037")));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -68,7 +68,6 @@ public class FtpListingCacheTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		// long enough that nothing in a test expires on its own
 		factory.setAttributeCacheTtl(60_000);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");

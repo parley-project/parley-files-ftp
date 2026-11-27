@@ -19,18 +19,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * A control connection runs one transfer and refuses every command while it does, so each stream
  * has a connection of its own: any number can be open together, commands work while they are,
  * and a finished connection is kept for the next stream.
  */
+@ErrorsExpected
 public class FtpConcurrentStreamsTest {
 
 	private FtpServer server;
@@ -44,7 +45,6 @@ public class FtpConcurrentStreamsTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpConcurrentStreamsPort", "8031")));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -59,7 +59,6 @@ public class FtpConcurrentStreamsTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, "" + server.getPort());
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
 	}
 
@@ -144,6 +143,7 @@ public class FtpConcurrentStreamsTest {
 		assertEquals(0, factory.idleTransferConnections(), "disconnecting closes them");
 	}
 
+	@ErrorsExpected
 	@Test
 	void aStreamThatFailsGivesItsConnectionUp() throws Exception {
 		int before = factory.idleTransferConnections();

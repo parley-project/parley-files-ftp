@@ -19,19 +19,20 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.fileproxy.FileProxyFactory;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * BJL-14: getCanonicalPath() meets the contract the shared isChildOfMine relies on
  * (absolute, "." and ".." resolved as the server's commands see them; FTP has no
  * links to follow), and isChildOfMine can't be escaped. Uses an in-process FTP server.
  */
+@ErrorsExpected
 public class FtpPathContractTest {
 
 	static final int PORT = Integer.parseInt(System.getProperty("FtpContractPort", "8022"));
@@ -54,7 +55,6 @@ public class FtpPathContractTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(serverRoot.toString()));
 		server.setPort(PORT);
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis()-start < 5000) {
@@ -69,7 +69,6 @@ public class FtpPathContractTest {
 		prop.setProperty(FtpFileSourceFactory.PROP_PORT, ""+PORT);
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
 	}
 

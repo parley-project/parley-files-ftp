@@ -19,13 +19,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.credentials.CredentialException;
 import us.bringardner.parley.files.credentials.Credentials;
 import us.bringardner.parley.files.credentials.EnvCredentialProvider;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /** The password and account may be references (@env:..., @prompt:...), resolved only to log in. */
+@ErrorsExpected
 public class FtpCredentialReferenceTest {
 
 	private static FtpTestServer server;
@@ -59,7 +60,6 @@ public class FtpCredentialReferenceTest {
 
 	private static FtpFileSourceFactory factory() {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
-		f.getLogger().setLevel(LogLevel.ERROR);
 		return f;
 	}
 

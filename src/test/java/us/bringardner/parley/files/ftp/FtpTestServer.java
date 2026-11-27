@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.util.Properties;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
@@ -42,7 +41,6 @@ final class FtpTestServer implements TestServerController {
 		prop.setProperty(FtpFileSourceFactory.PROP_ACCT, "bar.com");
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		FtpFileSourceFactory factory = new FtpFileSourceFactory();		
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop),"Can't connect to server");
 		FileSourceTestSupport.factory = factory;
 		FileSourceTestSupport.server = server;
@@ -64,7 +62,6 @@ final class FtpTestServer implements TestServerController {
 		svr.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		svr.setFtpRoot(root);
 		svr.setPort(PORT);
-		svr.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			svr.start();
 		} catch (Exception e) {

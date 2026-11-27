@@ -19,13 +19,13 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileSourceTestSupport;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.ftp.server.FtpServer;
 import us.bringardner.parley.iam.permission.StandardPermissions;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * connect() against a server that accepts the connection and never answers gives up after one
@@ -33,6 +33,7 @@ import us.bringardner.parley.iam.permission.StandardPermissions;
  * wait instead of returning false, and leaves no connection or thread behind. Also: connect()
  * replaces a main connection the server has dropped.
  */
+@ErrorsExpected
 public class FtpConnectTimeoutTest {
 
 	private static final int TIMEOUT_MS = 2000;
@@ -50,7 +51,6 @@ public class FtpConnectTimeoutTest {
 	private void check(FtpFileSourceFactory factory) throws Exception {
 		Set<Thread> before = new HashSet<>(Thread.getAllStackTraces().keySet());
 		try (SilentServer server = new SilentServer()) {
-			factory.getLogger().setLevel(LogLevel.ERROR);
 			try {
 				long start = System.nanoTime();
 				SocketTimeoutException e = assertThrows(SocketTimeoutException.class,
@@ -77,6 +77,7 @@ public class FtpConnectTimeoutTest {
 		assertNoNewThreads(before);
 	}
 
+	@ErrorsExpected
 	@Test
 	public void connectReplacesADroppedMainConnection() throws Exception {
 		int port;
@@ -90,7 +91,6 @@ public class FtpConnectTimeoutTest {
 		}
 		FtpServer svr = startServer(root, port);
 		FtpFileSourceFactory factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		try {
 			assertTrue(factory.connect(props(port)));
 			stopServer(svr);
@@ -126,7 +126,6 @@ public class FtpConnectTimeoutTest {
 		svr.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		svr.setFtpRoot(root);
 		svr.setPort(port);
-		svr.getLogger().setLevel(LogLevel.ERROR);
 		svr.start();
 		long end = System.currentTimeMillis() + 5000;
 		while( !svr.isRunning() && System.currentTimeMillis() < end ) {

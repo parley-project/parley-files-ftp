@@ -19,7 +19,6 @@ import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.ConnectionSettings;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
@@ -30,6 +29,7 @@ import us.bringardner.parley.ftp.client.ClientFtpOutputStream;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /**
  * The buffer size is for programmers: a per-connection value (the connect property
@@ -37,6 +37,7 @@ import us.bringardner.parley.ftp.server.FtpServer;
  * factory's own default. No dialog shows it, it isn't written into connections that
  * didn't set it, and a value that can't be used never stops a connection.
  */
+@ErrorsExpected
 public class FtpBufferSizeTest {
 
 	private static final String KEY = FtpFileSourceFactory.PROP_BUFFER_SIZE;
@@ -106,6 +107,7 @@ public class FtpBufferSizeTest {
 		assertEquals(512 * 1024, g.getBufferSize());
 	}
 
+	@ErrorsExpected
 	@Test
 	void anEmptyOrBadValueKeepsTheDefaultAndDoesNotThrow() {
 		FtpFileSourceFactory f = new FtpFileSourceFactory();
@@ -152,7 +154,6 @@ public class FtpBufferSizeTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpStreamOptionsPort", "8024")));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		FtpFileSourceFactory factory = null;
 		try {
@@ -170,7 +171,6 @@ public class FtpBufferSizeTest {
 			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 			prop.setProperty(KEY, "20000");
 			factory = new FtpFileSourceFactory();
-			factory.getLogger().setLevel(LogLevel.ERROR);
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			FileSource file = factory.createFileSource("/streamOptions.bin");
@@ -231,7 +231,6 @@ public class FtpBufferSizeTest {
 		server.setUserRegistry(new AnonymousUserRegistry(StandardPermissions.READ, StandardPermissions.WRITE));
 		server.setFtpRoot(FileSourceFactory.getDefaultFactory().createFileSource(root.toString()));
 		server.setPort(Integer.parseInt(System.getProperty("FtpBufferPort", "8023")));
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		FtpFileSourceFactory factory = null;
 		try {
@@ -249,7 +248,6 @@ public class FtpBufferSizeTest {
 			prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 			prop.setProperty(KEY, "20000");
 			factory = new FtpFileSourceFactory();
-			factory.getLogger().setLevel(LogLevel.ERROR);
 			assertTrue(factory.connect(prop), "can't connect to the FTP server");
 
 			assertEquals(20000, factory.getFtpClient().getTransferBufferSize(), "applied when the client was created");

@@ -12,15 +12,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
-import us.bringardner.parley.core.LogLevel;
 import us.bringardner.parley.files.FileSource;
 import us.bringardner.parley.files.FileSourceFactory;
 import us.bringardner.parley.files.test.FileLikeBehaviorTests;
 import us.bringardner.parley.ftp.server.AnonymousUserRegistry;
 import us.bringardner.parley.iam.permission.StandardPermissions;
 import us.bringardner.parley.ftp.server.FtpServer;
+import us.bringardner.parley.logging.testing.ErrorsExpected;
 
 /** An FTP server, reached through FtpFileSource, acts like a java.io.File. */
+@ErrorsExpected
 public class FtpFileLikeTest extends FileLikeBehaviorTests {
 
 	private static final AtomicInteger TREES = new AtomicInteger();
@@ -43,7 +44,6 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		server.setPort(Integer.parseInt(System.getProperty("FtpFileLikePort", "8025")));
 		// random access writes a chunk in the middle with REST and STOR, which must write in place
 		server.setStoreAtOffset(true);
-		server.getLogger().setLevel(LogLevel.ERROR);
 		server.start();
 		long start = System.currentTimeMillis();
 		while( !server.isRunning() && System.currentTimeMillis() - start < 5000 ) {
@@ -59,7 +59,6 @@ public class FtpFileLikeTest extends FileLikeBehaviorTests {
 		prop.setProperty(FtpFileSourceFactory.PROP_SECURE, "false");
 		prop.setProperty(FtpFileSourceFactory.PROP_STORE_AT_OFFSET, "true");
 		factory = new FtpFileSourceFactory();
-		factory.getLogger().setLevel(LogLevel.ERROR);
 		assertTrue(factory.connect(prop), "can't connect to the FTP server");
 	}
 
